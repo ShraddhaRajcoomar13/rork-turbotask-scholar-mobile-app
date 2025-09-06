@@ -1,9 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { AuthResponse, LoginRequest, SignupRequest, User } from '@/types/auth';
 import { Subscription, SubscriptionTier, PaymentVerification } from '@/types/subscription';
 import { Worksheet, WorksheetRequest, GenerationHistory } from '@/types/worksheet';
 
-const API_BASE_URL = 'https://api.turbotaskscholar.com'; // Replace with actual API URL
+const API_BASE_URL = __DEV__ 
+  ? 'http://localhost:3000/api' 
+  : 'https://api.turbotaskscholar.com/api';
 
 class ApiService {
   private async getAuthHeaders(): Promise<Record<string, string>> {
@@ -84,80 +87,47 @@ class ApiService {
     });
   }
 
-  // TEST MODE: Mock worksheet generation
   async generateWorksheet(request: WorksheetRequest): Promise<Worksheet> {
-    console.log('TEST MODE: Simulating worksheet generation with request:', request);
+    const formData = new FormData();
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (request.type === 'image') {
+      // Handle image upload
+      const response = await fetch(request.content);
+      const blob = await response.blob();
+      formData.append('image', blob as any, 'lesson-plan.jpg');
+    } else {
+      formData.append('text', request.content);
+    }
     
-    // Generate mock worksheet data
-    const mockWorksheet: Worksheet = {
-      id: `worksheet-${Date.now()}`,
-      userId: 'test-user-123',
-      title: `${request.subject} Worksheet - ${request.grade}`,
-      content: request.type === 'text' 
-        ? `Generated from: ${request.content.substring(0, 100)}...`
-        : 'Generated from uploaded image',
-      subject: request.subject,
-      grade: request.grade,
-      language: request.language,
-      pdfUrl: 'https://example.com/sample-worksheet.pdf', // Mock PDF URL
-      thumbnailUrl: 'https://example.com/sample-thumbnail.jpg',
-      isFavorite: false,
-      createdAt: new Date().toISOString(),
-    };
+    formData.append('prompt', request.prompt || '');
+    formData.append('language', request.language);
+    formData.append('grade', request.grade);
+    formData.append('subject', request.subject);
     
-    console.log('TEST MODE: Generated mock worksheet:', mockWorksheet);
-    return mockWorksheet;
+    const headers = await this.getAuthHeaders();
+    delete headers['Content-Type']; // Let browser set multipart boundary
+    
+    const response = await fetch(`${API_BASE_URL}/worksheets/generate`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Generation failed' }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+    
+    return response.json();
   }
 
-  // TEST MODE: Mock worksheet history
   async getWorksheets(page = 1, limit = 20): Promise<GenerationHistory> {
-    console.log('TEST MODE: Returning mock worksheet history');
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const mockWorksheets: Worksheet[] = [
-      {
-        id: 'worksheet-1',
-        userId: 'test-user-123',
-        title: 'Mathematics Worksheet - Grade 5',
-        content: 'Addition and subtraction problems',
-        subject: 'Mathematics',
-        grade: 'Grade 5',
-        language: 'en',
-        pdfUrl: 'https://example.com/math-worksheet.pdf',
-        thumbnailUrl: 'https://example.com/math-thumbnail.jpg',
-        isFavorite: true,
-        createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      },
-      {
-        id: 'worksheet-2',
-        userId: 'test-user-123',
-        title: 'English Worksheet - Grade 4',
-        content: 'Reading comprehension exercises',
-        subject: 'English',
-        grade: 'Grade 4',
-        language: 'en',
-        pdfUrl: 'https://example.com/english-worksheet.pdf',
-        thumbnailUrl: 'https://example.com/english-thumbnail.jpg',
-        isFavorite: false,
-        createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-      },
-    ];
-    
-    return {
-      worksheets: mockWorksheets,
-      totalGenerated: mockWorksheets.length,
-      creditsUsed: mockWorksheets.length,
-    };
+    return this.request<GenerationHistory>(`/worksheets?page=${page}&limit=${limit}`);
   }
 
   async toggleFavorite(worksheetId: string): Promise<{ isFavorite: boolean }> {
     return this.request<{ isFavorite: boolean }>(`/worksheets/${worksheetId}/favorite`, {
-      method: 'POST',
+      method: 'PATCH',
     });
   }
 
@@ -165,6 +135,16 @@ class ApiService {
     await this.request(`/worksheets/${worksheetId}`, {
       method: 'DELETE',
     });
+  }
+
+  async downloadWorksheet(worksheetId: string): Promise<string> {
+    const response = await this.request<{ downloadUrl: string }>(`/worksheets/${worksheetId}/download`);
+    return response.downloadUrl;
+  }
+
+  async shareWorksheet(worksheetId: string): Promise<string> {
+    const response = await this.request<{ shareUrl: string }>(`/worksheets/${worksheetId}/share`);
+    return response.shareUrl;
   }
 
   // Admin endpoints

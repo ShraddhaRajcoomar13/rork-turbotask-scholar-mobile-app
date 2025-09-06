@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Download, Heart, Trash2, FileText } from 'lucide-react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
+import { Download, Heart, Trash2, FileText, Share } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +9,7 @@ import { Worksheet } from '@/types/worksheet';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -42,16 +42,49 @@ export default function HistoryScreen() {
 
   const handleDownload = async (worksheet: Worksheet) => {
     try {
-      const fileUri = FileSystem.documentDirectory + `${worksheet.title}.pdf`;
-      const downloadResult = await FileSystem.downloadAsync(worksheet.pdfUrl, fileUri);
-      
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(downloadResult.uri);
+      if (Platform.OS === 'web') {
+        // On web, open PDF in new tab
+        await WebBrowser.openBrowserAsync(worksheet.pdfUrl);
       } else {
-        Alert.alert('Success', 'Worksheet downloaded successfully');
+        // On mobile, download and share
+        const downloadUrl = await apiService.downloadWorksheet(worksheet.id);
+        const fileUri = FileSystem.documentDirectory + `${worksheet.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri);
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Share Worksheet',
+          });
+        } else {
+          Alert.alert('Success', 'Worksheet downloaded successfully');
+        }
       }
     } catch (error) {
+      console.error('Download error:', error);
       Alert.alert('Error', 'Failed to download worksheet');
+    }
+  };
+
+  const handleShare = async (worksheet: Worksheet) => {
+    try {
+      const shareUrl = await apiService.shareWorksheet(worksheet.id);
+      
+      if (Platform.OS === 'web') {
+        await navigator.clipboard.writeText(shareUrl);
+        Alert.alert('Success', 'Share link copied to clipboard');
+      } else {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(shareUrl, {
+            dialogTitle: 'Share Worksheet Link',
+          });
+        } else {
+          Alert.alert('Share Link', shareUrl);
+        }
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      Alert.alert('Error', 'Failed to create share link');
     }
   };
 
@@ -102,6 +135,14 @@ export default function HistoryScreen() {
 
         <TouchableOpacity
           style={styles.actionButton}
+          onPress={() => handleShare(item)}
+          testID={`share-${item.id}`}
+        >
+          <Share size={20} color={COLORS.secondary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
           onPress={() => handleToggleFavorite(item)}
           testID={`favorite-${item.id}`}
         >
@@ -129,18 +170,18 @@ export default function HistoryScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load worksheets</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const worksheets = history?.worksheets || [];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {worksheets.length === 0 ? (
         <View style={styles.emptyContainer}>
           <FileText size={64} color={COLORS.text.light} />
@@ -160,7 +201,7 @@ export default function HistoryScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

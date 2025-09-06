@@ -1,43 +1,61 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
-import { AuthState, User, LoginRequest, SignupRequest } from '@/types/auth';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { AuthState, LoginRequest, SignupRequest } from '@/types/auth';
 import { apiService } from '@/services/api';
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
-  // TEST MODE: Create a mock authenticated user
-  const testUser: User = {
-    id: 'test-user-123',
-    email: 'test@turbotask.com',
-    firstName: 'Test',
-    lastName: 'Teacher',
-    role: 'teacher',
-    status: 'approved',
-    createdAt: new Date().toISOString(),
-    approvedAt: new Date().toISOString(),
-  };
-
   const [authState, setAuthState] = useState<AuthState>({
-    user: testUser,
-    token: 'test-token-123',
-    isLoading: false,
-    isAuthenticated: true,
+    user: null,
+    token: null,
+    isLoading: true,
+    isAuthenticated: false,
   });
 
   const queryClient = useQueryClient();
 
-  // TEST MODE: Skip auth initialization, already authenticated
+  // Initialize auth state from storage
   useEffect(() => {
-    console.log('TEST MODE: User automatically authenticated as:', testUser.email);
+    const initializeAuth = async () => {
+      try {
+        const [token, userData] = await AsyncStorage.multiGet(['auth_token', 'user_data']);
+        
+        if (token[1] && userData[1]) {
+          const user = JSON.parse(userData[1]);
+          setAuthState({
+            user,
+            token: token[1],
+            isLoading: false,
+            isAuthenticated: true,
+          });
+          
+          // Profile will be refreshed by the query when enabled
+        } else {
+          setAuthState(prev => ({ ...prev, isLoading: false }));
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+      }
+    };
+    
+    initializeAuth();
   }, []);
 
-  // TEST MODE: Mock profile query
   const profileQuery = useQuery({
     queryKey: ['profile'],
-    queryFn: () => Promise.resolve(testUser),
-    enabled: false, // Disabled in test mode
+    queryFn: () => apiService.getProfile(),
+    enabled: authState.isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors
+      if (error instanceof Error && error.message.includes('401')) {
+        logout();
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // Login mutation
@@ -65,7 +83,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   });
 
   // Logout function
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await AsyncStorage.multiRemove(['auth_token', 'user_data']);
       setAuthState({
@@ -78,22 +96,36 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, [queryClient]);
 
-  // TEST MODE: Skip profile sync
+  // Sync profile data when query succeeds
   useEffect(() => {
-    // Profile data is already set in test mode
-  }, []);
+    if (profileQuery.data && authState.isAuthenticated) {
+      setAuthState(prev => ({
+        ...prev,
+        user: profileQuery.data,
+      }));
+      
+      // Update stored user data
+      AsyncStorage.setItem('user_data', JSON.stringify(profileQuery.data));
+    }
+  }, [profileQuery.data, authState.isAuthenticated]);
 
-  return {
+  const { refetch: refetchProfile } = profileQuery;
+  const refreshProfile = useCallback(() => refetchProfile(), [refetchProfile]);
+
+  const { mutateAsync: loginAsync, isPending: isLoginLoading, error: loginError } = loginMutation;
+  const { mutateAsync: signupAsync, isPending: isSignupLoading, error: signupError } = signupMutation;
+
+  return useMemo(() => ({
     ...authState,
-    login: loginMutation.mutateAsync,
-    signup: signupMutation.mutateAsync,
+    login: loginAsync,
+    signup: signupAsync,
     logout,
-    isLoginLoading: loginMutation.isPending,
-    isSignupLoading: signupMutation.isPending,
-    loginError: loginMutation.error?.message,
-    signupError: signupMutation.error?.message,
-    refreshProfile: () => profileQuery.refetch(),
-  };
+    isLoginLoading,
+    isSignupLoading,
+    loginError: loginError?.message,
+    signupError: signupError?.message,
+    refreshProfile,
+  }), [authState, loginAsync, signupAsync, logout, isLoginLoading, isSignupLoading, loginError, signupError, refreshProfile]);
 });

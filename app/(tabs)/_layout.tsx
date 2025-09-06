@@ -23,6 +23,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          href: null, // Hide from tabs
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
           title: "Dashboard",
           headerTitle: "TurboTask Scholar",
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
