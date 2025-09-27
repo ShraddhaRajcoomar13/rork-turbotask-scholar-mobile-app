@@ -12,17 +12,39 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const segments = useSegments();
 
   useEffect(() => {
-    // TEST MODE: Skip all auth checks and redirect to main app
-    console.log('TEST MODE: Bypassing auth checks, redirecting to main app');
-    
-    const inAuthGroup = segments[0] === '(auth)';
-    
-    // Always redirect to main app if in auth screens
-    if (inAuthGroup) {
-      router.replace('/(tabs)');
-    }
-  }, [segments]);
+    if (isLoading) return;
 
-  // TEST MODE: Never show loading, always render children
+    const inAuthGroup = segments[0] === '(auth)';
+
+    console.log('Auth state:', { isAuthenticated, user: user?.email, status: user?.status, segments });
+
+    if (!isAuthenticated) {
+      // Not authenticated - redirect to login
+      if (!inAuthGroup) {
+        console.log('Not authenticated, redirecting to login');
+        router.replace('/(auth)/login');
+      }
+    } else {
+      // Authenticated - check approval status
+      if (user?.status === 'pending') {
+        // User is pending approval
+        if (!segments.includes('pending')) {
+          console.log('User pending approval, redirecting to pending screen');
+          router.replace('/(auth)/pending');
+        }
+      } else if (user?.status === 'approved') {
+        // User is approved - redirect to main app
+        if (inAuthGroup) {
+          console.log('User approved, redirecting to main app');
+          router.replace('/(tabs)/dashboard');
+        }
+      }
+    }
+  }, [isAuthenticated, isLoading, user, segments]);
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+
   return <>{children}</>;
 }

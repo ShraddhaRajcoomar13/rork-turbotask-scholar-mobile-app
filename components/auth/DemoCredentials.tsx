@@ -10,16 +10,22 @@ interface DemoCredentialsProps {
 export function DemoCredentials({ onSelectCredentials }: DemoCredentialsProps) {
   const credentials = [
     {
+      title: '🧪 Test Account (Full Credits)',
+      email: SAMPLE_CREDENTIALS.test.email,
+      password: SAMPLE_CREDENTIALS.test.password,
+      description: 'Professional plan with 25/25 credits - Perfect for testing!',
+    },
+    {
       title: 'Teacher Account (Active Subscription)',
       email: SAMPLE_CREDENTIALS.teacher.email,
       password: SAMPLE_CREDENTIALS.teacher.password,
       description: 'Professional plan with 18/25 credits remaining',
     },
     {
-      title: 'Teacher Account (Low Credits)',
+      title: 'Teacher Account (School Plan)',
       email: SAMPLE_CREDENTIALS.john.email,
       password: SAMPLE_CREDENTIALS.john.password,
-      description: 'Starter plan with 3/10 credits remaining',
+      description: 'School plan with 45/60 credits remaining',
     },
     {
       title: 'Pending Approval Account',

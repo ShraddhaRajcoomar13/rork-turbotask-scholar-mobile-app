@@ -31,8 +31,21 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
 
   const hasActiveSubscription = useCallback(() => {
     const subscription = subscriptionQuery.data;
-    return subscription?.status === 'active' && 
-           new Date(subscription.expiresAt) > new Date();
+    if (!subscription || subscription.status !== 'active') {
+      return false;
+    }
+    
+    const expiryDate = new Date(subscription.expiresAt);
+    const now = new Date();
+    console.log('Subscription check:', { 
+      status: subscription.status, 
+      expiresAt: subscription.expiresAt, 
+      expiryDate: expiryDate.toISOString(), 
+      now: now.toISOString(), 
+      isActive: expiryDate > now 
+    });
+    
+    return expiryDate > now;
   }, [subscriptionQuery.data]);
 
   const hasCredits = useCallback(() => {
@@ -41,10 +54,21 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   }, [subscriptionQuery.data, hasActiveSubscription]);
 
   const canGenerateWorksheet = useCallback(() => {
-    return isAuthenticated && 
+    const result = isAuthenticated && 
            user?.status === 'approved' && 
            hasCredits();
-  }, [isAuthenticated, user?.status, hasCredits]);
+    
+    console.log('canGenerateWorksheet check:', {
+      isAuthenticated,
+      userStatus: user?.status,
+      hasCredits: hasCredits(),
+      hasActiveSubscription: hasActiveSubscription(),
+      subscription: subscriptionQuery.data,
+      result
+    });
+    
+    return result;
+  }, [isAuthenticated, user?.status, hasCredits, hasActiveSubscription, subscriptionQuery.data]);
 
   const { refetch: refetchSubscription } = subscriptionQuery;
   const refreshSubscription = useCallback(() => refetchSubscription(), [refetchSubscription]);

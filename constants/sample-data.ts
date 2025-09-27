@@ -66,6 +66,24 @@ export const SAMPLE_USERS: User[] = [
     createdAt: '2024-01-01T00:00:00Z',
     approvedAt: '2024-01-01T00:00:00Z',
   },
+  {
+    id: '5',
+    email: 'test@demo.com',
+    firstName: 'Test',
+    lastName: 'Teacher',
+    role: 'teacher',
+    status: 'approved',
+    createdAt: '2024-01-01T00:00:00Z',
+    approvedAt: '2024-01-01T00:00:00Z',
+    profile: {
+      school: 'Test School',
+      subjects: ['Mathematics', 'English'],
+      grades: ['Grade 1', 'Grade 2'],
+      bio: 'Test teacher account for debugging',
+      experience: 1,
+      qualifications: ['Test Qualification'],
+    },
+  },
 ];
 
 // Sample subscription tiers with South African pricing
@@ -139,8 +157,8 @@ export const SAMPLE_SUBSCRIPTIONS: Subscription[] = [
     status: 'active',
     creditsRemaining: 18,
     creditsTotal: 25,
-    expiresAt: '2024-02-15T08:00:00Z',
-    createdAt: '2024-01-15T08:00:00Z',
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days ago
   },
   {
     id: 'sub-2',
@@ -149,8 +167,18 @@ export const SAMPLE_SUBSCRIPTIONS: Subscription[] = [
     status: 'active',
     creditsRemaining: 45,
     creditsTotal: 60,
-    expiresAt: '2024-02-20T10:30:00Z',
-    createdAt: '2024-01-20T10:30:00Z',
+    expiresAt: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(), // 25 days from now
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
+  },
+  {
+    id: 'sub-3',
+    userId: '5',
+    tier: 'professional',
+    status: 'active',
+    creditsRemaining: 25,
+    creditsTotal: 25,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
   },
 ];
 
@@ -175,6 +203,11 @@ export const SAMPLE_CREDENTIALS = {
     email: 'admin@demo.com',
     password: 'admin123',
     description: 'Administrator account',
+  },
+  test: {
+    email: 'test@demo.com',
+    password: 'demo123',
+    description: 'Test teacher with full Professional Plan (25/25 credits)',
   },
 };
 
