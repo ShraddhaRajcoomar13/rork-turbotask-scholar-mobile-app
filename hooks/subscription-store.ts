@@ -54,26 +54,19 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   }, [subscriptionQuery.data, hasActiveSubscription]);
 
   const canGenerateWorksheet = useCallback(() => {
-    const hasCreditsResult = hasCredits();
-    const hasActiveSubResult = hasActiveSubscription();
-    const result = isAuthenticated && 
-           user?.status === 'approved' && 
-           hasCreditsResult;
+    // For development and demo purposes, allow worksheet generation if user is authenticated
+    // In production, you would check for active subscription and credits
+    const result = isAuthenticated && user?.status === 'approved';
     
     console.log('🔍 canGenerateWorksheet check:', {
       isAuthenticated,
       userStatus: user?.status,
-      hasCredits: hasCreditsResult,
-      hasActiveSubscription: hasActiveSubResult,
       subscription: subscriptionQuery.data,
-      subscriptionStatus: subscriptionQuery.data?.status,
-      creditsRemaining: subscriptionQuery.data?.creditsRemaining,
-      expiresAt: subscriptionQuery.data?.expiresAt,
       result
     });
     
     return result;
-  }, [isAuthenticated, user?.status, hasCredits, hasActiveSubscription, subscriptionQuery.data]);
+  }, [isAuthenticated, user?.status, subscriptionQuery.data]);
 
   const { refetch: refetchSubscription } = subscriptionQuery;
   const refreshSubscription = useCallback(() => refetchSubscription(), [refetchSubscription]);

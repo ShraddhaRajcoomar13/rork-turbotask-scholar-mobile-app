@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Sparkles, FileText, Wand2 } from 'lucide-react-native';
-import { createRorkTool, useRorkAgent } from "@rork/toolkit-sdk";
-import { z } from 'zod';
+// import { createRorkTool, useRorkAgent } from "@rork/toolkit-sdk";
+// import { z } from 'zod';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -23,93 +23,254 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
   
   const { subscription, canGenerateWorksheet } = useSubscription();
 
-  const { messages, error, sendMessage } = useRorkAgent({
-    tools: {
-      generateWorksheet: createRorkTool({
-        description: "Generate a comprehensive worksheet based on the provided parameters",
-        zodSchema: z.object({
-          subject: z.string().describe("The subject for the worksheet"),
-          grade: z.string().describe("The grade level for the worksheet"),
-          topic: z.string().describe("The specific topic or learning objective"),
-          questionCount: z.number().describe("Number of questions to include"),
-          difficulty: z.enum(["easy", "medium", "hard"]).describe("Difficulty level"),
-          includeAnswerKey: z.boolean().describe("Whether to include an answer key"),
-          language: z.string().describe("Language for the worksheet").default("en"),
-        }),
-        async execute(input) {
-          try {
-            if (!canGenerateWorksheet) {
-              return 'No credits remaining. Please upgrade your subscription.';
-            }
+  const [messages, setMessages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
-            // Generate worksheet content using fallback method to avoid JSON parse errors
-            const worksheetContent = generateFallbackContent({
-              subject: input.subject,
-              grade: input.grade,
-              topic: input.topic,
-              questionCount: input.questionCount,
-              difficulty: input.difficulty,
-              includeAnswerKey: input.includeAnswerKey,
-              language: input.language,
-            });
+  const generateWorksheetWithAI = async (prompt: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Parse the prompt to extract worksheet parameters
+      const params = parseWorksheetPrompt(prompt);
+      
+      // Generate worksheet content using OpenAI API
+      const worksheetContent = await generateWorksheetContent({
+        prompt,
+        subject: params.subject,
+        grade: params.grade,
+        topic: params.topic,
+        questionCount: params.questionCount,
+        difficulty: params.difficulty,
+        includeAnswerKey: params.includeAnswerKey,
+        language: params.language,
+      });
 
-            // Create PDF from the generated content
-            const pdfUrl = await createWorksheetPDF({
-              title: `${input.subject} Worksheet - ${input.grade}`,
-              content: worksheetContent,
-              grade: input.grade,
-              subject: input.subject,
-            });
-            
-            // Create worksheet object
-            const worksheet = {
-              id: `worksheet-${Date.now()}`,
-              title: `${input.subject} Worksheet - ${input.grade}`,
-              content: worksheetContent,
-              grade: input.grade,
-              subject: input.subject,
-              language: input.language,
-              pdfUrl,
-              createdAt: new Date().toISOString(),
-              isFavorite: false,
-              downloadCount: 0,
-            };
-            
-            // Store worksheet data for download (avoid structured clone issues)
-            const worksheetInfo = {
-              title: worksheet.title,
-              id: worksheet.id,
-              pdfUrl: worksheet.pdfUrl
-            };
-            
-            // Store in a simple way to avoid structured clone issues
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-              (window as any).lastGeneratedWorksheet = JSON.parse(JSON.stringify(worksheetInfo));
-            }
-            
-            // Trigger success callback
-            onSuccess?.(worksheet);
-            
-            return `Worksheet "${worksheetInfo.title}" generated successfully! You can download it now.`;
-          } catch (error) {
-            console.error('Worksheet generation error:', error);
-            return `Failed to generate worksheet: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          }
-        },
-      }),
-      suggestTopics: createRorkTool({
-        description: "Suggest relevant topics for a given subject and grade",
-        zodSchema: z.object({
-          subject: z.string().describe("The subject to suggest topics for"),
-          grade: z.string().describe("The grade level"),
+      // Create PDF from the generated content
+      const pdfUrl = await createWorksheetPDF({
+        title: `${params.subject} Worksheet - ${params.grade}`,
+        content: worksheetContent,
+        grade: params.grade,
+        subject: params.subject,
+      });
+      
+      // Create worksheet object
+      const worksheet = {
+        id: `worksheet-${Date.now()}`,
+        title: `${params.subject} Worksheet - ${params.grade}`,
+        content: worksheetContent,
+        grade: params.grade,
+        subject: params.subject,
+        language: params.language,
+        pdfUrl,
+        createdAt: new Date().toISOString(),
+        isFavorite: false,
+        downloadCount: 0,
+      };
+      
+      // Store worksheet data for download
+      const worksheetInfo = {
+        title: worksheet.title,
+        id: worksheet.id,
+        pdfUrl: worksheet.pdfUrl
+      };
+      
+      // Store in a simple way
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        (window as any).lastGeneratedWorksheet = worksheetInfo;
+      }
+      
+      // Trigger success callback
+      onSuccess?.(worksheet);
+      
+      return `Worksheet "${worksheetInfo.title}" generated successfully! You can download it now.`;
+    } catch (error) {
+      console.error('Worksheet generation error:', error);
+      throw error;
+    }
+  };
+
+  const parseWorksheetPrompt = (prompt: string) => {
+    // Simple parsing logic to extract parameters from natural language
+    const lowerPrompt = prompt.toLowerCase();
+    
+    // Extract subject
+    let subject = 'Mathematics';
+    if (lowerPrompt.includes('english') || lowerPrompt.includes('language')) subject = 'English';
+    else if (lowerPrompt.includes('science')) subject = 'Natural Sciences';
+    else if (lowerPrompt.includes('social') || lowerPrompt.includes('history') || lowerPrompt.includes('geography')) subject = 'Social Sciences';
+    
+    // Extract grade
+    let grade = 'Grade 5';
+    const gradeMatch = prompt.match(/grade\s*(\d+)/i);
+    if (gradeMatch) grade = `Grade ${gradeMatch[1]}`;
+    
+    // Extract question count
+    let questionCount = 10;
+    const countMatch = prompt.match(/(\d+)\s*questions?/i);
+    if (countMatch) questionCount = parseInt(countMatch[1]);
+    
+    // Extract topic
+    let topic = 'General';
+    if (lowerPrompt.includes('fraction')) topic = 'Fractions';
+    else if (lowerPrompt.includes('addition')) topic = 'Addition';
+    else if (lowerPrompt.includes('multiplication')) topic = 'Multiplication';
+    else if (lowerPrompt.includes('comprehension')) topic = 'Reading Comprehension';
+    
+    return {
+      subject,
+      grade,
+      topic,
+      questionCount,
+      difficulty: 'medium' as const,
+      includeAnswerKey: lowerPrompt.includes('answer key') || lowerPrompt.includes('answers'),
+      language: 'en',
+    };
+  };
+
+  const generateWorksheetContent = async (params: {
+    prompt: string;
+    subject: string;
+    grade: string;
+    topic: string;
+    questionCount: number;
+    difficulty: string;
+    includeAnswerKey: boolean;
+    language: string;
+  }): Promise<string> => {
+    try {
+      const systemPrompt = `You are an expert teacher creating educational worksheets. Create a comprehensive, well-structured worksheet that is appropriate for ${params.grade} students studying ${params.subject}.
+
+The worksheet should include:
+- Clear title and instructions
+- ${params.questionCount} varied questions with different difficulty levels
+- Mix of question types (multiple choice, short answer, problem solving)
+- ${params.includeAnswerKey ? 'Answer key at the end' : 'No answer key'}
+- Professional formatting suitable for printing
+
+Topic focus: ${params.topic}
+User request: ${params.prompt}
+
+Format the output as a clean, printable worksheet in ${params.language === 'en' ? 'English' : 'the requested language'}.`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch('http://vps.kyro.ninja:5000/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: systemPrompt
+          }],
+          max_tokens: 2000,
+          temperature: 0.7,
         }),
-        execute(input) {
-          const topics = getTopicsForSubject(input.subject, input.grade);
-          return `Here are some relevant topics for ${input.subject} in ${input.grade}: ${topics.join(', ')}`;
-        },
-      }),
-    },
-  });
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const content = result.choices?.[0]?.message?.content || result.content || result.text;
+      
+      if (!content) {
+        throw new Error('No content received from OpenAI API');
+      }
+      
+      return content;
+    } catch (error) {
+      console.error('Content generation failed, using fallback:', error);
+      return generateFallbackContent(params);
+    }
+  };
+
+  const sendMessage = async (message: string) => {
+    if (!canGenerateWorksheet) {
+      setError(new Error('No credits remaining. Please upgrade your subscription.'));
+      return;
+    }
+
+    const userMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      parts: [{ type: 'text', text: message }]
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await generateWorksheetWithAI(message);
+      
+      const assistantMessage = {
+        id: `msg-${Date.now()}-assistant`,
+        role: 'assistant',
+        parts: [{ type: 'text', text: response }]
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Message processing failed:', error);
+      setError(error instanceof Error ? error : new Error('Unknown error'));
+      
+      // Add fallback response
+      const fallbackMessage = {
+        id: `msg-${Date.now()}-fallback`,
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'I encountered an issue generating your worksheet. Let me create a basic worksheet for you instead.' }]
+      };
+      
+      setMessages(prev => [...prev, fallbackMessage]);
+      
+      // Generate fallback worksheet
+      try {
+        const params = parseWorksheetPrompt(message);
+        const fallbackContent = generateFallbackContent(params);
+        const pdfUrl = await createWorksheetPDF({
+          title: `${params.subject} Worksheet - ${params.grade}`,
+          content: fallbackContent,
+          grade: params.grade,
+          subject: params.subject,
+        });
+        
+        const worksheet = {
+          id: `worksheet-${Date.now()}`,
+          title: `${params.subject} Worksheet - ${params.grade}`,
+          content: fallbackContent,
+          grade: params.grade,
+          subject: params.subject,
+          language: params.language,
+          pdfUrl,
+          createdAt: new Date().toISOString(),
+          isFavorite: false,
+          downloadCount: 0,
+        };
+        
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          (window as any).lastGeneratedWorksheet = {
+            title: worksheet.title,
+            id: worksheet.id,
+            pdfUrl: worksheet.pdfUrl
+          };
+        }
+        
+        onSuccess?.(worksheet);
+      } catch (fallbackError) {
+        console.error('Fallback generation also failed:', fallbackError);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
 
@@ -322,15 +483,20 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
     }
   };
 
-  const renderMessage = (message: any, index: number) => (
-    <View key={message.id} style={styles.messageContainer}>
-      <View style={[
-        styles.messageBubble,
-        message.role === 'user' ? styles.userMessage : styles.assistantMessage
-      ]}>
-        {message.parts.map((part: any, partIndex: number) => {
-          switch (part.type) {
-            case 'text':
+  const renderMessage = (message: any, index: number) => {
+    const isSuccess = message.parts.some((part: any) => 
+      part.type === 'text' && part.text.includes('generated successfully')
+    );
+    const lastWorksheet = Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).lastGeneratedWorksheet : null;
+    
+    return (
+      <View key={message.id} style={styles.messageContainer}>
+        <View style={[
+          styles.messageBubble,
+          message.role === 'user' ? styles.userMessage : styles.assistantMessage
+        ]}>
+          {message.parts.map((part: any, partIndex: number) => {
+            if (part.type === 'text') {
               return (
                 <Text key={`text-${message.id}-${partIndex}`} style={[
                   styles.messageText,
@@ -339,49 +505,29 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
                   {part.text}
                 </Text>
               );
-            case 'tool':
-              if (part.state === 'output-available' && part.toolName === 'generateWorksheet') {
-                const isSuccess = typeof part.output === 'string' && part.output.includes('generated successfully');
-                const lastWorksheet = Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).lastGeneratedWorksheet : null;
-                return (
-                  <View key={`worksheet-${message.id}-${partIndex}`} style={styles.worksheetResult}>
-                    <View style={styles.worksheetHeader}>
-                      <FileText size={20} color={isSuccess ? COLORS.success : COLORS.error} />
-                      <Text style={styles.worksheetTitle}>
-                        {isSuccess ? 'Worksheet Generated!' : 'Generation Failed'}
-                      </Text>
-                    </View>
-                    <Text style={styles.worksheetInfo}>
-                      {part.output}
-                    </Text>
-                    {isSuccess && lastWorksheet && (
-                      <Button
-                        title="Download Worksheet"
-                        onPress={() => downloadWorksheet(lastWorksheet)}
-                        style={styles.downloadButton}
-                        size="small"
-                      />
-                    )}
-                  </View>
-                );
-              }
-              return (
-                <View key={`tool-${message.id}-${partIndex}`} style={styles.toolCall}>
-                  <Wand2 size={16} color={COLORS.primary} />
-                  <Text style={styles.toolText}>
-                    {part.state === 'input-streaming' || part.state === 'input-available' 
-                      ? `Generating ${part.toolName}...` 
-                      : `Completed ${part.toolName}`}
-                  </Text>
-                </View>
-              );
-            default:
-              return null;
-          }
-        })}
+            }
+            return null;
+          })}
+          
+          {/* Show download button for successful generations */}
+          {message.role === 'assistant' && isSuccess && lastWorksheet && (
+            <View style={styles.worksheetResult}>
+              <View style={styles.worksheetHeader}>
+                <FileText size={20} color={COLORS.success} />
+                <Text style={styles.worksheetTitle}>Worksheet Ready!</Text>
+              </View>
+              <Button
+                title="Download Worksheet"
+                onPress={() => downloadWorksheet(lastWorksheet)}
+                style={styles.downloadButton}
+                size="small"
+              />
+            </View>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
