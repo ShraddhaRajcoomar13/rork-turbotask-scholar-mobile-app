@@ -55,13 +55,14 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
             
             // Store worksheet data for download (avoid structured clone issues)
             const worksheetInfo = {
-              title: String(worksheet.title || 'Untitled Worksheet'),
-              id: String(worksheet.id || 'unknown'),
-              pdfUrl: String(worksheet.pdfUrl || '')
+              title: worksheet.title || 'Untitled Worksheet',
+              id: worksheet.id || 'unknown',
+              pdfUrl: worksheet.pdfUrl || ''
             };
             
-            if (typeof window !== 'undefined') {
-              (window as any).lastGeneratedWorksheet = worksheetInfo;
+            // Store in a simple way to avoid structured clone issues
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              (window as any).lastGeneratedWorksheet = JSON.parse(JSON.stringify(worksheetInfo));
             }
             
             // Trigger success callback
@@ -173,7 +174,7 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
             case 'tool':
               if (part.state === 'output-available' && part.toolName === 'generateWorksheet') {
                 const isSuccess = typeof part.output === 'string' && part.output.includes('generated successfully');
-                const lastWorksheet = (window as any).lastGeneratedWorksheet;
+                const lastWorksheet = Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).lastGeneratedWorksheet : null;
                 return (
                   <View key={partIndex} style={styles.worksheetResult}>
                     <View style={styles.worksheetHeader}>

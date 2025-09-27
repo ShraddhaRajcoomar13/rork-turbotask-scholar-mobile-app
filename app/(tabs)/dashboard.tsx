@@ -11,6 +11,7 @@ import { TeachingTips } from '@/components/dashboard/TeachingTips';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { QuickGenerateModal } from '@/components/worksheet/QuickGenerateModal';
 import { SubscriptionDebug } from '@/components/debug/SubscriptionDebug';
+import { APITest } from '@/components/debug/APITest';
 import { useAuth } from '@/hooks/auth-store';
 import { useSubscription } from '@/hooks/subscription-store';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -102,6 +103,7 @@ export default function DashboardScreen() {
         <SubscriptionCard onUpgrade={handleUpgrade} />
 
         <SubscriptionDebug />
+        <APITest />
 
         <TeacherStats 
           totalWorksheets={42}

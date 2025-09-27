@@ -5,9 +5,7 @@ import { Subscription, SubscriptionTier, PaymentVerification } from '@/types/sub
 import { Worksheet, WorksheetRequest, GenerationHistory } from '@/types/worksheet';
 import { SAMPLE_USERS, SAMPLE_CREDENTIALS, SUBSCRIPTION_TIERS, SAMPLE_SUBSCRIPTIONS } from '@/constants/sample-data';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:5000' 
-  : 'https://api.turbotaskscholar.com';
+const API_BASE_URL = 'http://vps.kyro.ninja:5000';
 
 class ApiService {
   private async getAuthHeaders(): Promise<Record<string, string>> {
@@ -155,9 +153,10 @@ class ApiService {
   }
 
   async generateWorksheet(request: WorksheetRequest): Promise<Worksheet> {
-    if (__DEV__) {
-      return this.mockGenerateWorksheet(request);
-    }
+    // Always use the real API now that we have the correct endpoint
+    // if (__DEV__) {
+    //   return this.mockGenerateWorksheet(request);
+    // }
 
     try {
       let extractedText = '';
@@ -230,10 +229,10 @@ class ApiService {
     language: string;
   }): Promise<string> {
     try {
-      // For development, use fallback content immediately
-      if (__DEV__) {
-        return this.generateFallbackContent(params);
-      }
+      // Try to use the real API first, fallback on error
+      // if (__DEV__) {
+      //   return this.generateFallbackContent(params);
+      // }
 
       const systemPrompt = `You are an expert teacher creating educational worksheets. Create a comprehensive, well-structured worksheet that is appropriate for ${params.grade} students studying ${params.subject}.
 
@@ -253,8 +252,11 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gpt-4',
-          prompt: systemPrompt,
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: systemPrompt
+          }],
           max_tokens: 2000,
           temperature: 0.7,
         }),
@@ -265,7 +267,7 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
       }
 
       const result = await openaiResponse.json();
-      return result.content || result.text || result.choices?.[0]?.text || this.generateFallbackContent(params);
+      return result.choices?.[0]?.message?.content || result.content || result.text || this.generateFallbackContent(params);
     } catch (error) {
       console.error('Content generation failed:', error);
       return this.generateFallbackContent(params);

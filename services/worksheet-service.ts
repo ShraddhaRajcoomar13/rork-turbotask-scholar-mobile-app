@@ -1,8 +1,6 @@
 import { WorksheetRequest, Worksheet } from '@/types/worksheet';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:5000' 
-  : 'https://api.turbotaskscholar.com';
+const API_BASE_URL = 'http://vps.kyro.ninja:5000';
 
 export class WorksheetService {
   private async getAuthHeaders(): Promise<Record<string, string>> {
@@ -112,8 +110,11 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gpt-4',
-          prompt: systemPrompt,
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: systemPrompt
+          }],
           max_tokens: 2000,
           temperature: 0.7,
         }),
@@ -124,7 +125,7 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
       }
 
       const result = await openaiResponse.json();
-      return result.content || result.text || result.choices?.[0]?.text || '';
+      return result.choices?.[0]?.message?.content || result.content || result.text || '';
     } catch (error) {
       console.error('Content generation failed:', error);
       throw new Error('Failed to generate worksheet content');
