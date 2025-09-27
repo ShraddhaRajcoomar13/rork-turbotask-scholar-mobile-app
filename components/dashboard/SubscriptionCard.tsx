@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { CreditCard, Calendar, Zap } from 'lucide-react-native';
+import { Calendar, Zap, Star, BookOpen } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useSubscription } from '@/hooks/subscription-store';
@@ -15,19 +15,35 @@ export function SubscriptionCard({ onUpgrade }: SubscriptionCardProps) {
 
   if (!hasActiveSubscription || !subscription) {
     return (
-      <Card style={styles.card}>
-        <View style={styles.header}>
-          <CreditCard size={24} color={COLORS.accent} />
-          <Text style={styles.title}>No Active Subscription</Text>
+      <Card style={[styles.card, styles.noSubscriptionCard]}>
+        <View style={styles.noSubHeader}>
+          <View style={styles.iconContainer}>
+            <BookOpen size={28} color={COLORS.accent} />
+          </View>
+          <Text style={styles.noSubTitle}>Start Your Teaching Journey</Text>
         </View>
-        <Text style={styles.description}>
-          Subscribe to start generating AI-powered worksheets
+        <Text style={styles.noSubDescription}>
+          Join thousands of teachers creating amazing worksheets with AI
         </Text>
+        <View style={styles.benefitsList}>
+          <View style={styles.benefit}>
+            <Star size={16} color={COLORS.secondary} />
+            <Text style={styles.benefitText}>Curriculum-aligned content</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Star size={16} color={COLORS.secondary} />
+            <Text style={styles.benefitText}>Multiple South African languages</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Star size={16} color={COLORS.secondary} />
+            <Text style={styles.benefitText}>Instant PDF generation</Text>
+          </View>
+        </View>
         <Button
-          title="Choose Plan"
+          title="Explore Plans"
           onPress={onUpgrade}
-          variant="secondary"
-          size="small"
+          variant="primary"
+          size="medium"
         />
       </Card>
     );
@@ -84,6 +100,50 @@ export function SubscriptionCard({ onUpgrade }: SubscriptionCardProps) {
 const styles = StyleSheet.create({
   card: {
     marginBottom: SPACING.md,
+  },
+  noSubscriptionCard: {
+    backgroundColor: COLORS.education.background,
+    borderWidth: 2,
+    borderColor: COLORS.accent + '30',
+  },
+  noSubHeader: {
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.accent + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  noSubTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.text.primary,
+    textAlign: 'center',
+  },
+  noSubDescription: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+    lineHeight: 24,
+  },
+  benefitsList: {
+    marginBottom: SPACING.lg,
+  },
+  benefit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  benefitText: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.primary,
+    marginLeft: SPACING.sm,
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

@@ -1,8 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RefreshCw } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { SubscriptionCard } from '@/components/dashboard/SubscriptionCard';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { TeacherStats } from '@/components/dashboard/TeacherStats';
+import { CurriculumActions } from '@/components/dashboard/CurriculumActions';
+import { TeachingTips } from '@/components/dashboard/TeachingTips';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useAuth } from '@/hooks/auth-store';
 import { useSubscription } from '@/hooks/subscription-store';
@@ -11,6 +16,7 @@ import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 export default function DashboardScreen() {
   const { user } = useAuth();
   const { canGenerateWorksheet, isLoading, refreshSubscription } = useSubscription();
+  const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -48,24 +54,54 @@ export default function DashboardScreen() {
     router.push('/(tabs)/subscription');
   };
 
+  const handleSubjectSelect = (subject: string) => {
+    if (canGenerateWorksheet) {
+      router.push({
+        pathname: '/generate/text',
+        params: { subject }
+      });
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.refreshHeader}>
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={onRefresh}
+          disabled={refreshing}
+        >
+          <RefreshCw 
+            size={20} 
+            color={refreshing ? COLORS.text.light : COLORS.text.secondary} 
+          />
+        </TouchableOpacity>
+      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.greeting}>
-            Welcome back, {user?.firstName}!
+            Welcome back, {user?.firstName}! 👋
           </Text>
           <Text style={styles.subtitle}>
-            Ready to create amazing worksheets?
+            Let&apos;s create engaging worksheets for your students
           </Text>
         </View>
 
         <SubscriptionCard onUpgrade={handleUpgrade} />
+
+        <TeacherStats 
+          totalWorksheets={42}
+          studentsReached={156}
+          favoriteSubject="Mathematics"
+          weeklyGrowth={15}
+        />
+
+        <CurriculumActions 
+          onSubjectSelect={handleSubjectSelect}
+          canGenerate={canGenerateWorksheet}
+        />
+
+        <TeachingTips />
 
         <QuickActions
           onGenerateText={handleGenerateText}
@@ -125,5 +161,15 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  refreshHeader: {
+    alignItems: 'flex-end',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  refreshButton: {
+    padding: SPACING.sm,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
   },
 });

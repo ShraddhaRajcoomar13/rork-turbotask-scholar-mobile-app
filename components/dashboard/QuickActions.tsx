@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { FileText, Image, History, Settings } from 'lucide-react-native';
+import { FileText, Image, User, BookOpen, Download } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
@@ -31,39 +31,42 @@ export function QuickActions({
   const actions: QuickAction[] = [
     {
       id: 'text',
-      title: 'Text Prompt',
-      subtitle: 'Generate from description',
-      icon: <FileText size={24} color={canGenerate ? COLORS.primary : COLORS.text.light} />,
+      title: 'Create from Text',
+      subtitle: 'Describe your worksheet',
+      icon: <FileText size={24} color={canGenerate ? COLORS.education.primary : COLORS.text.light} />,
       onPress: onGenerateText,
       disabled: !canGenerate,
     },
     {
       id: 'image',
-      title: 'Upload Image',
-      subtitle: 'Generate from lesson plan',
+      title: 'Upload Lesson Plan',
+      subtitle: 'Convert image to worksheet',
       icon: <Image size={24} color={canGenerate ? COLORS.accent : COLORS.text.light} />,
       onPress: onGenerateImage,
       disabled: !canGenerate,
     },
     {
       id: 'history',
-      title: 'History',
-      subtitle: 'View past worksheets',
-      icon: <History size={24} color={COLORS.secondary} />,
+      title: 'My Worksheets',
+      subtitle: 'Browse & download',
+      icon: <BookOpen size={24} color={COLORS.success} />,
       onPress: onViewHistory,
     },
     {
-      id: 'settings',
-      title: 'Settings',
+      id: 'profile',
+      title: 'Teacher Profile',
       subtitle: 'Account & preferences',
-      icon: <Settings size={24} color={COLORS.text.secondary} />,
+      icon: <User size={24} color={COLORS.text.secondary} />,
       onPress: onSettings,
     },
   ];
 
   return (
     <Card style={styles.card}>
-      <Text style={styles.title}>Quick Actions</Text>
+      <View style={styles.titleContainer}>
+        <Download size={20} color={COLORS.primary} />
+        <Text style={styles.title}>Quick Actions</Text>
+      </View>
       <View style={styles.grid}>
         {actions.map((action) => (
           <TouchableOpacity
@@ -102,10 +105,15 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: SPACING.md,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
   title: {
     ...TYPOGRAPHY.h3,
     color: COLORS.text.primary,
-    marginBottom: SPACING.md,
+    marginLeft: SPACING.sm,
   },
   grid: {
     flexDirection: 'row',
