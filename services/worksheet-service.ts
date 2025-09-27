@@ -138,10 +138,7 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [{
-            role: 'user',
-            content: systemPrompt
-          }],
+          prompt: systemPrompt,
           max_tokens: 2000,
           temperature: 0.7,
         }),
@@ -156,7 +153,7 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
       }
 
       const result = await openaiResponse.json();
-      const content = result.choices?.[0]?.message?.content || result.content || result.text;
+      const content = result.result || result.content || result.text || result.choices?.[0]?.message?.content;
       
       if (!content) {
         throw new Error('No content received from OpenAI API');

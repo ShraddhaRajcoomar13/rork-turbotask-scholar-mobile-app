@@ -35,10 +35,7 @@ export function APITest() {
           },
           body: JSON.stringify({
             model: 'gpt-4o-mini',
-            messages: [{
-              role: 'user',
-              content: 'Create a simple math worksheet for Grade 3 students with 5 addition problems.'
-            }],
+            prompt: 'Create a simple math worksheet for Grade 3 students with 5 addition problems.',
             max_tokens: 500,
             temperature: 0.7,
           }),
@@ -65,7 +62,7 @@ export function APITest() {
         
         console.log(`OpenAI API Response for ${url}:`, data);
         
-        const content = data.choices?.[0]?.message?.content || data.content || data.text || 'No content received';
+        const content = data.result || data.content || data.text || data.choices?.[0]?.message?.content || 'No content received';
         
         if (!content || content === 'No content received') {
           throw new Error('OpenAI API returned empty content');

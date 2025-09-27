@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { RefreshCw } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { SubscriptionCard } from '@/components/dashboard/SubscriptionCard';
@@ -19,7 +19,7 @@ import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 export default function DashboardScreen() {
   const { user } = useAuth();
   const { canGenerateWorksheet, isLoading, refreshSubscription } = useSubscription();
-  const insets = useSafeAreaInsets();
+
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [showQuickGenerate, setShowQuickGenerate] = React.useState(false);
@@ -77,7 +77,7 @@ export default function DashboardScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.refreshHeader}>
         <TouchableOpacity 
           style={styles.refreshButton}
