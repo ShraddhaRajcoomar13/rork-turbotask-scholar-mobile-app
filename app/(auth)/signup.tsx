@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Link, router } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { Link, router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/auth-store';
@@ -92,6 +93,22 @@ export default function SignupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen 
+        options={{
+          headerShown: true,
+          title: 'Create Account',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.surface,
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <ArrowLeft size={24} color={COLORS.surface} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -193,7 +210,7 @@ export default function SignupScreen() {
               <Text style={styles.footerText}>
                 Already have an account?{' '}
                 <Link href="/(auth)/login" style={styles.link}>
-                  Sign in
+                  <Text style={styles.link}>Sign in</Text>
                 </Link>
               </Text>
             </View>
@@ -261,5 +278,9 @@ const styles = StyleSheet.create({
   link: {
     color: COLORS.accent,
     fontWeight: '600',
+  },
+  backButton: {
+    padding: SPACING.sm,
+    marginLeft: SPACING.sm,
   },
 });

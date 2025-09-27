@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CheckCircle, Clock } from 'lucide-react-native';
+import { CheckCircle, Clock, ArrowLeft } from 'lucide-react-native';
+import { Stack, router } from 'expo-router';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/hooks/auth-store';
@@ -16,6 +17,22 @@ export default function PendingApprovalScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen 
+        options={{
+          headerShown: true,
+          title: 'Account Pending',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.surface,
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <ArrowLeft size={24} color={COLORS.surface} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <View style={styles.content}>
         <Card style={styles.card}>
           <View style={styles.iconContainer}>
@@ -30,7 +47,7 @@ export default function PendingApprovalScreen() {
           
           <Text style={styles.description}>
             Our team will review your application and approve your account within 24-48 hours. 
-            You'll receive an email notification once your account is approved.
+            You&apos;ll receive an email notification once your account is approved.
           </Text>
 
           <View style={styles.features}>
@@ -122,5 +139,9 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     marginBottom: SPACING.sm,
+  },
+  backButton: {
+    padding: SPACING.sm,
+    marginLeft: SPACING.sm,
   },
 });

@@ -1,15 +1,15 @@
 import { Stack } from 'expo-router';
+import { StyleSheet } from 'react-native';
 import { COLORS } from '@/constants/theme';
 
 export default function GenerateLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: {
-          backgroundColor: COLORS.primary,
-        },
+        headerStyle: styles.headerStyle,
         headerTintColor: COLORS.surface,
         headerBackTitle: 'Back',
+        headerTitleStyle: styles.headerTitle,
       }}
     >
       <Stack.Screen 
@@ -31,3 +31,13 @@ export default function GenerateLayout() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  headerStyle: {
+    backgroundColor: COLORS.primary,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+  },
+});
