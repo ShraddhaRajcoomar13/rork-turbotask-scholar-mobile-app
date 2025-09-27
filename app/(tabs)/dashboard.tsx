@@ -9,6 +9,7 @@ import { TeacherStats } from '@/components/dashboard/TeacherStats';
 import { CurriculumActions } from '@/components/dashboard/CurriculumActions';
 import { TeachingTips } from '@/components/dashboard/TeachingTips';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { QuickGenerateModal } from '@/components/worksheet/QuickGenerateModal';
 import { useAuth } from '@/hooks/auth-store';
 import { useSubscription } from '@/hooks/subscription-store';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -19,6 +20,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const [showQuickGenerate, setShowQuickGenerate] = React.useState(false);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -33,6 +35,12 @@ export default function DashboardScreen() {
   const handleGenerateText = () => {
     if (canGenerateWorksheet) {
       router.push('/generate/text');
+    }
+  };
+
+  const handleQuickGenerate = () => {
+    if (canGenerateWorksheet) {
+      setShowQuickGenerate(true);
     }
   };
 
@@ -108,6 +116,7 @@ export default function DashboardScreen() {
           onGenerateImage={handleGenerateImage}
           onViewHistory={handleViewHistory}
           onSettings={handleSettings}
+          onQuickGenerate={handleQuickGenerate}
           canGenerate={canGenerateWorksheet}
         />
 
@@ -120,6 +129,14 @@ export default function DashboardScreen() {
           </View>
         )}
       </ScrollView>
+
+      <QuickGenerateModal
+        visible={showQuickGenerate}
+        onClose={() => setShowQuickGenerate(false)}
+        onSuccess={() => {
+          console.log('Worksheet generated successfully!');
+        }}
+      />
     </View>
   );
 }

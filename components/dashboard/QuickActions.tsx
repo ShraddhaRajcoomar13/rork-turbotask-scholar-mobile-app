@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { FileText, Image, User, BookOpen, Download } from 'lucide-react-native';
+import { FileText, Image, User, BookOpen, Download, Zap } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
@@ -18,6 +18,7 @@ interface QuickActionsProps {
   onGenerateImage: () => void;
   onViewHistory: () => void;
   onSettings: () => void;
+  onQuickGenerate?: () => void;
   canGenerate: boolean;
 }
 
@@ -26,14 +27,23 @@ export function QuickActions({
   onGenerateImage,
   onViewHistory,
   onSettings,
+  onQuickGenerate,
   canGenerate,
 }: QuickActionsProps) {
   const actions: QuickAction[] = [
     {
+      id: 'quick',
+      title: 'Quick Generate',
+      subtitle: 'Fast worksheet creation',
+      icon: <Zap size={24} color={canGenerate ? COLORS.accent : COLORS.text.light} />,
+      onPress: onQuickGenerate || onGenerateText,
+      disabled: !canGenerate,
+    },
+    {
       id: 'text',
       title: 'Create from Text',
       subtitle: 'Describe your worksheet',
-      icon: <FileText size={24} color={canGenerate ? COLORS.education.primary : COLORS.text.light} />,
+      icon: <FileText size={24} color={canGenerate ? COLORS.primary : COLORS.text.light} />,
       onPress: onGenerateText,
       disabled: !canGenerate,
     },

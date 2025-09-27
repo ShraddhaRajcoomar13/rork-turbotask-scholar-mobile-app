@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
-import { Download, Heart, Trash2, FileText, Share } from 'lucide-react-native';
-import { Card } from '@/components/ui/Card';
+import { View, Text, StyleSheet, FlatList, Alert } from 'react-native';
+import { FileText } from 'lucide-react-native';
+
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { WorksheetCard } from '@/components/worksheet/WorksheetCard';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 import { Worksheet } from '@/types/worksheet';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import * as WebBrowser from 'expo-web-browser';
 
 export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -40,54 +38,6 @@ export default function HistoryScreen() {
     setRefreshing(false);
   };
 
-  const handleDownload = async (worksheet: Worksheet) => {
-    try {
-      if (Platform.OS === 'web') {
-        // On web, open PDF in new tab
-        await WebBrowser.openBrowserAsync(worksheet.pdfUrl);
-      } else {
-        // On mobile, download and share
-        const downloadUrl = await apiService.downloadWorksheet(worksheet.id);
-        const fileUri = FileSystem.documentDirectory + `${worksheet.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-        const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri);
-        
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(downloadResult.uri, {
-            mimeType: 'application/pdf',
-            dialogTitle: 'Share Worksheet',
-          });
-        } else {
-          Alert.alert('Success', 'Worksheet downloaded successfully');
-        }
-      }
-    } catch (error) {
-      console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download worksheet');
-    }
-  };
-
-  const handleShare = async (worksheet: Worksheet) => {
-    try {
-      const shareUrl = await apiService.shareWorksheet(worksheet.id);
-      
-      if (Platform.OS === 'web') {
-        await navigator.clipboard.writeText(shareUrl);
-        Alert.alert('Success', 'Share link copied to clipboard');
-      } else {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(shareUrl, {
-            dialogTitle: 'Share Worksheet Link',
-          });
-        } else {
-          Alert.alert('Share Link', shareUrl);
-        }
-      }
-    } catch (error) {
-      console.error('Share error:', error);
-      Alert.alert('Error', 'Failed to create share link');
-    }
-  };
-
   const handleToggleFavorite = (worksheet: Worksheet) => {
     toggleFavoriteMutation.mutate(worksheet.id);
   };
@@ -108,60 +58,11 @@ export default function HistoryScreen() {
   };
 
   const renderWorksheet = ({ item }: { item: Worksheet }) => (
-    <Card style={styles.worksheetCard}>
-      <View style={styles.worksheetHeader}>
-        <View style={styles.worksheetInfo}>
-          <Text style={styles.worksheetTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <Text style={styles.worksheetMeta}>
-            {item.grade} • {item.subject} • {item.language}
-          </Text>
-          <Text style={styles.worksheetDate}>
-            {new Date(item.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-        <FileText size={24} color={COLORS.primary} />
-      </View>
-
-      <View style={styles.worksheetActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleDownload(item)}
-          testID={`download-${item.id}`}
-        >
-          <Download size={20} color={COLORS.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleShare(item)}
-          testID={`share-${item.id}`}
-        >
-          <Share size={20} color={COLORS.secondary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleToggleFavorite(item)}
-          testID={`favorite-${item.id}`}
-        >
-          <Heart 
-            size={20} 
-            color={item.isFavorite ? COLORS.accent : COLORS.text.light}
-            fill={item.isFavorite ? COLORS.accent : 'transparent'}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleDelete(item)}
-          testID={`delete-${item.id}`}
-        >
-          <Trash2 size={20} color={COLORS.error} />
-        </TouchableOpacity>
-      </View>
-    </Card>
+    <WorksheetCard
+      worksheet={item}
+      onToggleFavorite={handleToggleFavorite}
+      onDelete={handleDelete}
+    />
   );
 
   if (isLoading) {
@@ -212,43 +113,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: SPACING.lg,
-  },
-  worksheetCard: {
-    marginBottom: SPACING.md,
-  },
-  worksheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.md,
-  },
-  worksheetInfo: {
-    flex: 1,
-    marginRight: SPACING.md,
-  },
-  worksheetTitle: {
-    ...TYPOGRAPHY.h3,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.xs,
-  },
-  worksheetMeta: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.text.secondary,
-    marginBottom: SPACING.xs,
-  },
-  worksheetDate: {
-    ...TYPOGRAPHY.small,
-    color: COLORS.text.light,
-  },
-  worksheetActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: SPACING.sm,
-  },
-  actionButton: {
-    padding: SPACING.sm,
-    borderRadius: 8,
-    backgroundColor: COLORS.background,
   },
   emptyContainer: {
     flex: 1,
