@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface AIWorksheetGeneratorProps {
   onSuccess?: (worksheet: any) => void;
@@ -20,7 +21,7 @@ interface AIWorksheetGeneratorProps {
 
 export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
   const [input, setInput] = useState('');
-
+  const insets = useSafeAreaInsets();
   
   const { subscription, canGenerateWorksheet } = useSubscription();
   const queryClient = useQueryClient();
@@ -69,6 +70,12 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
 
           try {
             const worksheet = await generateWorksheetMutation.mutateAsync(worksheetData);
+            // Store worksheet data for download
+            (window as any).lastGeneratedWorksheet = {
+              title: worksheet.title,
+              id: worksheet.id,
+              pdfUrl: worksheet.pdfUrl
+            };
             return `Worksheet "${worksheet.title}" generated successfully! You can download it now.`;
           } catch (error) {
             return `Failed to generate worksheet: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -120,6 +127,11 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
 
   const downloadWorksheet = async (worksheet: any) => {
     try {
+      if (!worksheet?.pdfUrl) {
+        console.error('No PDF URL available');
+        return;
+      }
+
       if (Platform.OS === 'web') {
         // For web, open the PDF in a new tab
         window.open(worksheet.pdfUrl, '_blank');
@@ -129,17 +141,16 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
       // For mobile, download and share
       const downloadResult = await FileSystem.downloadAsync(
         worksheet.pdfUrl,
-        FileSystem.documentDirectory + `${worksheet.title}.pdf`
+        FileSystem.documentDirectory + `${worksheet.title || 'worksheet'}.pdf`
       );
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(downloadResult.uri);
       } else {
-        Alert.alert('Success', 'Worksheet downloaded successfully!');
+        console.log('Worksheet downloaded successfully!');
       }
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert('Download Failed', 'Unable to download worksheet. Please try again.');
     }
   };
 
@@ -162,21 +173,27 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
               );
             case 'tool':
               if (part.state === 'output-available' && part.toolName === 'generateWorksheet') {
+                const isSuccess = typeof part.output === 'string' && part.output.includes('generated successfully');
+                const lastWorksheet = (window as any).lastGeneratedWorksheet;
                 return (
                   <View key={partIndex} style={styles.worksheetResult}>
                     <View style={styles.worksheetHeader}>
-                      <FileText size={20} color={COLORS.success} />
-                      <Text style={styles.worksheetTitle}>Worksheet Generated!</Text>
+                      <FileText size={20} color={isSuccess ? COLORS.success : COLORS.error} />
+                      <Text style={styles.worksheetTitle}>
+                        {isSuccess ? 'Worksheet Generated!' : 'Generation Failed'}
+                      </Text>
                     </View>
                     <Text style={styles.worksheetInfo}>
-                      {part.output.title}
+                      {part.output}
                     </Text>
-                    <Button
-                      title="Download PDF"
-                      onPress={() => downloadWorksheet(part.output)}
-                      style={styles.downloadButton}
-                      size="small"
-                    />
+                    {isSuccess && lastWorksheet && (
+                      <Button
+                        title="Download PDF"
+                        onPress={() => downloadWorksheet(lastWorksheet)}
+                        style={styles.downloadButton}
+                        size="small"
+                      />
+                    )}
                   </View>
                 );
               }
@@ -269,7 +286,7 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
         )}
       </ScrollView>
 
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}>
         <Input
           value={input}
           onChangeText={setInput}

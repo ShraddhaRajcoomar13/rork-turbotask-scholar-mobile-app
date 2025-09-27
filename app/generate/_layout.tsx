@@ -6,15 +6,28 @@ export default function GenerateLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.surface,
+          backgroundColor: COLORS.primary,
         },
-        headerTintColor: COLORS.primary,
+        headerTintColor: COLORS.surface,
         headerBackTitle: 'Back',
       }}
     >
-      <Stack.Screen name="worksheet" />
-      <Stack.Screen name="text" />
-      <Stack.Screen name="image" />
+      <Stack.Screen 
+        name="worksheet" 
+        options={{ title: 'Generate Worksheet' }}
+      />
+      <Stack.Screen 
+        name="text" 
+        options={{ title: 'Text Worksheet' }}
+      />
+      <Stack.Screen 
+        name="image" 
+        options={{ title: 'Image Worksheet' }}
+      />
+      <Stack.Screen 
+        name="ai-chat" 
+        options={{ title: 'AI Assistant' }}
+      />
     </Stack>
   );
 }

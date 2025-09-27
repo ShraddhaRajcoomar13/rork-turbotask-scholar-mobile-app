@@ -54,16 +54,21 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   }, [subscriptionQuery.data, hasActiveSubscription]);
 
   const canGenerateWorksheet = useCallback(() => {
+    const hasCreditsResult = hasCredits();
+    const hasActiveSubResult = hasActiveSubscription();
     const result = isAuthenticated && 
            user?.status === 'approved' && 
-           hasCredits();
+           hasCreditsResult;
     
-    console.log('canGenerateWorksheet check:', {
+    console.log('🔍 canGenerateWorksheet check:', {
       isAuthenticated,
       userStatus: user?.status,
-      hasCredits: hasCredits(),
-      hasActiveSubscription: hasActiveSubscription(),
+      hasCredits: hasCreditsResult,
+      hasActiveSubscription: hasActiveSubResult,
       subscription: subscriptionQuery.data,
+      subscriptionStatus: subscriptionQuery.data?.status,
+      creditsRemaining: subscriptionQuery.data?.creditsRemaining,
+      expiresAt: subscriptionQuery.data?.expiresAt,
       result
     });
     
