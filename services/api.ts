@@ -7,22 +7,42 @@ import { SAMPLE_USERS, SAMPLE_CREDENTIALS, SUBSCRIPTION_TIERS, SAMPLE_SUBSCRIPTI
 
 const API_BASE_URL = 'http://vps.kyro.ninja:5000';
 
+// Fallback to local development server if main server is unavailable
+const FALLBACK_API_URL = 'http://localhost:5000';
+
 // Health check function to test server connectivity
-const testServerConnection = async (): Promise<boolean> => {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`${API_BASE_URL}/health`, {
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-    return response.ok;
-  } catch (error) {
-    console.warn('Server connection test failed:', error);
-    return false;
+const testServerConnection = async (): Promise<{ isAvailable: boolean; url: string }> => {
+  const urls = [API_BASE_URL, FALLBACK_API_URL];
+  
+  for (const url of urls) {
+    try {
+      console.log(`Testing server connection to: ${url}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduced timeout
+      
+      const response = await fetch(`${url}/health`, {
+        signal: controller.signal,
+        mode: 'cors', // Explicitly set CORS mode
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        console.log(`✅ Server available at: ${url}`);
+        return { isAvailable: true, url };
+      }
+    } catch (error) {
+      console.warn(`❌ Server connection failed for ${url}:`, error);
+      continue;
+    }
   }
+  
+  console.warn('❌ All servers unavailable, using fallback mode');
+  return { isAvailable: false, url: API_BASE_URL };
 };
 
 class ApiService {
@@ -36,17 +56,21 @@ class ApiService {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    baseUrl?: string
   ): Promise<T> {
     const headers = await this.getAuthHeaders();
+    const apiUrl = baseUrl || API_BASE_URL;
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
       
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${apiUrl}${endpoint}`, {
         ...options,
+        mode: 'cors',
         headers: {
+          'Accept': 'application/json',
           ...headers,
           ...options.headers,
         },
@@ -56,18 +80,40 @@ class ApiService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
-        throw new Error(error.message || `HTTP ${response.status}`);
+        const errorText = await response.text().catch(() => '');
+        let errorMessage = `HTTP ${response.status}`;
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      return response.json();
+      const responseText = await response.text();
+      if (!responseText) {
+        return {} as T;
+      }
+      
+      try {
+        return JSON.parse(responseText);
+      } catch {
+        // If response is not JSON, return as string
+        return responseText as unknown as T;
+      }
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          throw new Error('Request timeout - please check your internet connection');
+          throw new Error('Request timeout - server is not responding');
         }
-        if (error.message.includes('Failed to fetch') || error.message.includes('Network request failed')) {
-          throw new Error('Network error - unable to connect to server');
+        if (error.message.includes('Failed to fetch') || 
+            error.message.includes('Network request failed') ||
+            error.message.includes('CORS') ||
+            error.message.includes('ERR_NETWORK')) {
+          throw new Error(`Network error - unable to connect to server at ${apiUrl}`);
         }
       }
       throw error;
@@ -190,12 +236,14 @@ class ApiService {
 
   async generateWorksheet(request: WorksheetRequest): Promise<Worksheet> {
     // Check server connectivity first
-    const isServerAvailable = await testServerConnection();
+    const serverStatus = await testServerConnection();
     
-    if (!isServerAvailable || __DEV__) {
+    if (!serverStatus.isAvailable || __DEV__) {
       console.log('Using fallback worksheet generation (server unavailable or dev mode)');
       return this.mockGenerateWorksheet(request);
     }
+    
+    const apiUrl = serverStatus.url;
 
     try {
       let extractedText = '';
@@ -236,7 +284,7 @@ class ApiService {
         grade: request.grade,
         subject: request.subject,
         language: request.language,
-      });
+      }, apiUrl);
       
       // Create PDF from the generated content
       const pdfUrl = await this.createWorksheetPDF({
@@ -271,7 +319,7 @@ class ApiService {
     grade: string;
     subject: string;
     language: string;
-  }): Promise<string> {
+  }, apiUrl: string = API_BASE_URL): Promise<string> {
     try {
       const systemPrompt = `You are an expert teacher creating educational worksheets. Create a comprehensive, well-structured worksheet that is appropriate for ${params.grade} students studying ${params.subject}.
 
@@ -290,9 +338,13 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      const openaiResponse = await fetch(`${API_BASE_URL}/openai`, {
+      const openaiResponse = await fetch(`${apiUrl}/openai`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [{
