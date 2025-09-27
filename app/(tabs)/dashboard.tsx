@@ -50,6 +50,12 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleAIChat = () => {
+    if (canGenerateWorksheet) {
+      router.push('/generate/ai-chat');
+    }
+  };
+
   const handleViewHistory = () => {
     router.push('/(tabs)/history');
   };
@@ -114,6 +120,7 @@ export default function DashboardScreen() {
           onViewHistory={handleViewHistory}
           onSettings={handleSettings}
           onQuickGenerate={handleQuickGenerate}
+          onAIChat={handleAIChat}
           canGenerate={canGenerateWorksheet}
         />
 

@@ -31,23 +31,13 @@ import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { worksheetService } from '@/services/worksheet-service';
-import { SOUTH_AFRICAN_LANGUAGES } from '@/types/worksheet';
+import { SOUTH_AFRICAN_LANGUAGES, GRADE_OPTIONS, SUBJECT_OPTIONS } from '@/types/worksheet';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useSubscription } from '@/hooks/subscription-store';
 
 type GenerationType = 'text' | 'image';
 
-const GRADE_OPTIONS = [
-  'Grade R', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5',
-  'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'
-];
 
-const SUBJECT_OPTIONS = [
-  'Mathematics', 'English', 'Afrikaans', 'Natural Sciences', 'Social Sciences',
-  'Technology', 'Arts and Culture', 'Life Orientation', 'Economic Management Sciences',
-  'Physical Sciences', 'Life Sciences', 'Geography', 'History', 'Accounting',
-  'Business Studies', 'Tourism', 'Consumer Studies', 'Information Technology'
-];
 
 export default function WorksheetGeneratorScreen() {
   const [generationType, setGenerationType] = useState<GenerationType>('text');

@@ -7,6 +7,14 @@ export interface User {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   approvedAt?: string;
+  profile?: {
+    school?: string;
+    subjects?: string[];
+    grades?: string[];
+    bio?: string;
+    experience?: number;
+    qualifications?: string[];
+  };
 }
 
 export interface AuthState {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { FileText, Image, User, BookOpen, Download, Zap } from 'lucide-react-native';
+import { FileText, Image, User, BookOpen, Download, Zap, MessageCircle } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
@@ -19,6 +19,7 @@ interface QuickActionsProps {
   onViewHistory: () => void;
   onSettings: () => void;
   onQuickGenerate?: () => void;
+  onAIChat?: () => void;
   canGenerate: boolean;
 }
 
@@ -28,9 +29,18 @@ export function QuickActions({
   onViewHistory,
   onSettings,
   onQuickGenerate,
+  onAIChat,
   canGenerate,
 }: QuickActionsProps) {
   const actions: QuickAction[] = [
+    {
+      id: 'ai-chat',
+      title: 'AI Assistant',
+      subtitle: 'Chat to create worksheets',
+      icon: <MessageCircle size={24} color={canGenerate ? COLORS.secondary : COLORS.text.light} />,
+      onPress: onAIChat || onGenerateText,
+      disabled: !canGenerate,
+    },
     {
       id: 'quick',
       title: 'Quick Generate',
@@ -132,7 +142,7 @@ const styles = StyleSheet.create({
   },
   action: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: '30%',
     backgroundColor: COLORS.background,
     padding: SPACING.md,
     borderRadius: 12,
