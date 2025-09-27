@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { AuthResponse, LoginRequest, SignupRequest, User } from '@/types/auth';
 import { Subscription, SubscriptionTier, PaymentVerification } from '@/types/subscription';
 import { Worksheet, WorksheetRequest, GenerationHistory } from '@/types/worksheet';
+import { SAMPLE_USERS, SAMPLE_CREDENTIALS, SUBSCRIPTION_TIERS, SAMPLE_SUBSCRIPTIONS } from '@/constants/sample-data';
 
 const API_BASE_URL = __DEV__ 
   ? 'http://localhost:3000/api' 
@@ -41,13 +42,48 @@ class ApiService {
 
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<AuthResponse> {
+    // For development, use sample data
+    if (__DEV__) {
+      return this.mockLogin(credentials);
+    }
+    
     return this.request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   }
 
+  private async mockLogin(credentials: LoginRequest): Promise<AuthResponse> {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Find matching credentials
+    const matchingCredential = Object.values(SAMPLE_CREDENTIALS).find(
+      cred => cred.email === credentials.email && cred.password === credentials.password
+    );
+    
+    if (!matchingCredential) {
+      throw new Error('Invalid email or password');
+    }
+    
+    const user = SAMPLE_USERS.find(u => u.email === credentials.email);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return {
+      user,
+      token: `mock-token-${user.id}-${Date.now()}`,
+    };
+  }
+
   async signup(data: SignupRequest): Promise<{ message: string }> {
+    // For development, simulate signup
+    if (__DEV__) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return { message: 'Account created successfully! Please wait for admin approval.' };
+    }
+    
     return this.request<{ message: string }>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -55,6 +91,21 @@ class ApiService {
   }
 
   async getProfile(): Promise<User> {
+    if (__DEV__) {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token || !token.startsWith('mock-token-')) {
+        throw new Error('Unauthorized');
+      }
+      
+      const userId = token.split('-')[2];
+      const user = SAMPLE_USERS.find(u => u.id === userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      return user;
+    }
+    
     return this.request<User>('/auth/profile');
   }
 
@@ -66,6 +117,16 @@ class ApiService {
 
   // Subscription endpoints
   async getSubscription(): Promise<Subscription | null> {
+    if (__DEV__) {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token || !token.startsWith('mock-token-')) {
+        return null;
+      }
+      
+      const userId = token.split('-')[2];
+      return SAMPLE_SUBSCRIPTIONS.find(s => s.userId === userId) || null;
+    }
+    
     try {
       return await this.request<Subscription>('/subscription');
     } catch (error) {
@@ -77,6 +138,12 @@ class ApiService {
   }
 
   async getSubscriptionTiers(): Promise<SubscriptionTier[]> {
+    if (__DEV__) {
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return SUBSCRIPTION_TIERS;
+    }
+    
     return this.request<SubscriptionTier[]>('/subscription/tiers');
   }
 

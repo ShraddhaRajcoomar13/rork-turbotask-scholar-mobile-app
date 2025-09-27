@@ -1,7 +1,7 @@
 export interface Subscription {
   id: string;
   userId: string;
-  tier: 'basic' | 'premium' | 'enterprise';
+  tier: 'starter' | 'professional' | 'school';
   status: 'active' | 'cancelled' | 'expired';
   creditsRemaining: number;
   creditsTotal: number;

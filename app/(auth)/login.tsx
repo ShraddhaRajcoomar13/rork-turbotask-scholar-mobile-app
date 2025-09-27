@@ -4,6 +4,7 @@ import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { DemoCredentials } from '@/components/auth/DemoCredentials';
 import { useAuth } from '@/hooks/auth-store';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
@@ -12,11 +13,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Test credentials
-  const TEST_CREDENTIALS = {
-    email: 'teacher@turbotask.com',
-    password: 'password123'
-  };
+  const [showDemoCredentials, setShowDemoCredentials] = useState(__DEV__);
 
   const { login, isLoginLoading, loginError } = useAuth();
 
@@ -44,15 +41,15 @@ export default function LoginScreen() {
 
     try {
       await login({ email: email.trim(), password });
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/dashboard' as any);
     } catch (error) {
       Alert.alert('Login Failed', error instanceof Error ? error.message : 'Please try again');
     }
   };
 
-  const useTestCredentials = () => {
-    setEmail(TEST_CREDENTIALS.email);
-    setPassword(TEST_CREDENTIALS.password);
+  const handleSelectCredentials = (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
     setErrors({});
   };
 
@@ -104,19 +101,15 @@ export default function LoginScreen() {
               testID="login-button"
             />
 
-            <Button
-              title="Use Test Credentials"
-              onPress={useTestCredentials}
-              variant="outline"
-              style={styles.testButton}
-              testID="test-credentials-button"
-            />
+            {showDemoCredentials && (
+              <DemoCredentials onSelectCredentials={handleSelectCredentials} />
+            )}
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/(auth)/signup" style={styles.link}>
-                  Sign up
+                  <Text style={styles.link}>Sign up</Text>
                 </Link>
               </Text>
             </View>

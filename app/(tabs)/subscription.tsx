@@ -1,25 +1,27 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Check, Crown, Zap, Star } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PricingCard } from '@/components/subscription/PricingCard';
 import { useSubscription } from '@/hooks/subscription-store';
-import { useQuery } from '@tanstack/react-query';
-import { apiService } from '@/services/api';
 import { SubscriptionTier } from '@/types/subscription';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export default function SubscriptionScreen() {
-  const { subscription, hasActiveSubscription, verifyPayment, isVerifyingPayment } = useSubscription();
-
-  const { data: tiers, isLoading } = useQuery({
-    queryKey: ['subscription-tiers'],
-    queryFn: apiService.getSubscriptionTiers,
-  });
+  const { subscription, tiers, hasActiveSubscription, verifyPayment, isVerifyingPayment, isLoading } = useSubscription();
 
   const handleSubscribe = async (tier: SubscriptionTier) => {
+    if (__DEV__) {
+      Alert.alert(
+        'Demo Mode',
+        `In production, this would open the Yoco payment link for ${tier.name} (R${tier.price}/month)`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       const supported = await Linking.canOpenURL(tier.yocoPaymentLink);
       if (supported) {
@@ -49,31 +51,7 @@ export default function SubscriptionScreen() {
     );
   };
 
-  const getTierIcon = (tierName: string) => {
-    switch (tierName.toLowerCase()) {
-      case 'basic':
-        return <Zap size={24} color={COLORS.primary} />;
-      case 'premium':
-        return <Star size={24} color={COLORS.accent} />;
-      case 'enterprise':
-        return <Crown size={24} color={COLORS.secondary} />;
-      default:
-        return <Zap size={24} color={COLORS.primary} />;
-    }
-  };
 
-  const getTierColor = (tierName: string) => {
-    switch (tierName.toLowerCase()) {
-      case 'basic':
-        return COLORS.primary;
-      case 'premium':
-        return COLORS.accent;
-      case 'enterprise':
-        return COLORS.secondary;
-      default:
-        return COLORS.primary;
-    }
-  };
 
   if (isLoading) {
     return <LoadingSpinner message="Loading subscription plans..." />;
@@ -107,63 +85,20 @@ export default function SubscriptionScreen() {
             Select the perfect plan for your worksheet generation needs
           </Text>
 
-          {tiers?.map((tier) => {
-            const isCurrentTier = subscription?.tier === tier.name;
-            const tierColor = getTierColor(tier.name);
-
-            return (
-              <Card key={tier.id} style={[
-                styles.tierCard,
-                isCurrentTier && { borderColor: tierColor, borderWidth: 2 }
-              ]}>
-                <View style={styles.tierHeader}>
-                  <View style={styles.tierInfo}>
-                    {getTierIcon(tier.name)}
-                    <Text style={styles.tierName}>{tier.name}</Text>
-                  </View>
-                  <View style={styles.tierPricing}>
-                    <Text style={styles.tierPrice}>R{tier.price}</Text>
-                    <Text style={styles.tierDuration}>/{tier.duration} days</Text>
-                  </View>
-                </View>
-
-                <View style={styles.tierCredits}>
-                  <Text style={styles.tierCreditsText}>
-                    {tier.credits} worksheets included
-                  </Text>
-                </View>
-
-                <View style={styles.tierFeatures}>
-                  {tier.features.map((feature, index) => (
-                    <View key={index} style={styles.feature}>
-                      <Check size={16} color={COLORS.success} />
-                      <Text style={styles.featureText}>{feature}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {!isCurrentTier && (
-                  <Button
-                    title={hasActiveSubscription ? 'Upgrade' : 'Subscribe'}
-                    onPress={() => handleSubscribe(tier)}
-                    style={[styles.subscribeButton, { backgroundColor: tierColor }]}
-                  />
-                )}
-
-                {isCurrentTier && (
-                  <View style={styles.currentTierBadge}>
-                    <Text style={styles.currentTierText}>Current Plan</Text>
-                  </View>
-                )}
-              </Card>
-            );
-          })}
+          {tiers.map((tier, index) => (
+            <PricingCard
+              key={tier.id}
+              tier={tier}
+              isPopular={tier.id === 'professional'}
+              onSelect={handleSubscribe}
+            />
+          ))}
         </View>
 
         <Card style={styles.verifyCard}>
           <Text style={styles.verifyTitle}>Already Paid?</Text>
           <Text style={styles.verifyDescription}>
-            If you've completed payment, verify it here to activate your subscription.
+            If you&apos;ve completed payment, verify it here to activate your subscription.
           </Text>
           <Button
             title="Verify Payment"
