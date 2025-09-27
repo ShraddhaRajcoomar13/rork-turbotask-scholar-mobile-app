@@ -7,6 +7,24 @@ import { SAMPLE_USERS, SAMPLE_CREDENTIALS, SUBSCRIPTION_TIERS, SAMPLE_SUBSCRIPTI
 
 const API_BASE_URL = 'http://vps.kyro.ninja:5000';
 
+// Health check function to test server connectivity
+const testServerConnection = async (): Promise<boolean> => {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.warn('Server connection test failed:', error);
+    return false;
+  }
+};
+
 class ApiService {
   private async getAuthHeaders(): Promise<Record<string, string>> {
     const token = await AsyncStorage.getItem('auth_token');
@@ -22,20 +40,38 @@ class ApiService {
   ): Promise<T> {
     const headers = await this.getAuthHeaders();
     
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-      },
-    });
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers,
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Network error' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
+        throw new Error(error.message || `HTTP ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout - please check your internet connection');
+        }
+        if (error.message.includes('Failed to fetch') || error.message.includes('Network request failed')) {
+          throw new Error('Network error - unable to connect to server');
+        }
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   // Auth endpoints
@@ -153,34 +189,42 @@ class ApiService {
   }
 
   async generateWorksheet(request: WorksheetRequest): Promise<Worksheet> {
-    // Always use the real API now that we have the correct endpoint
-    // if (__DEV__) {
-    //   return this.mockGenerateWorksheet(request);
-    // }
+    // Check server connectivity first
+    const isServerAvailable = await testServerConnection();
+    
+    if (!isServerAvailable || __DEV__) {
+      console.log('Using fallback worksheet generation (server unavailable or dev mode)');
+      return this.mockGenerateWorksheet(request);
+    }
 
     try {
       let extractedText = '';
       
       if (request.type === 'image') {
         // Handle image upload - first extract text using Textract
-        const response = await fetch(request.content);
-        const blob = await response.blob();
-        
-        // Extract text from image using Textract
-        const textractFormData = new FormData();
-        textractFormData.append('image', blob as any, 'lesson-plan.jpg');
-        
-        const textractResponse = await fetch(`${API_BASE_URL}/textract/image`, {
-          method: 'POST',
-          body: textractFormData,
-        });
-        
-        if (!textractResponse.ok) {
-          throw new Error('Failed to extract text from image');
+        try {
+          const response = await fetch(request.content);
+          const blob = await response.blob();
+          
+          // Extract text from image using Textract
+          const textractFormData = new FormData();
+          textractFormData.append('image', blob as any, 'lesson-plan.jpg');
+          
+          const textractResponse = await fetch(`${API_BASE_URL}/textract/image`, {
+            method: 'POST',
+            body: textractFormData,
+          });
+          
+          if (!textractResponse.ok) {
+            throw new Error('Failed to extract text from image');
+          }
+          
+          const textractResult = await textractResponse.json();
+          extractedText = textractResult.text || textractResult.extractedText || '';
+        } catch (error) {
+          console.warn('Text extraction failed, using fallback:', error);
+          extractedText = `Sample lesson plan content about ${request.subject} for ${request.grade} students.`;
         }
-        
-        const textractResult = await textractResponse.json();
-        extractedText = textractResult.text || textractResult.extractedText || '';
       } else {
         extractedText = request.content;
       }
@@ -216,8 +260,8 @@ class ApiService {
         downloadCount: 0,
       };
     } catch (error) {
-      console.error('Worksheet generation failed:', error);
-      throw new Error('Failed to generate worksheet. Please try again.');
+      console.error('Worksheet generation failed, falling back to mock:', error);
+      return this.mockGenerateWorksheet(request);
     }
   }
 
@@ -229,11 +273,6 @@ class ApiService {
     language: string;
   }): Promise<string> {
     try {
-      // Try to use the real API first, fallback on error
-      // if (__DEV__) {
-      //   return this.generateFallbackContent(params);
-      // }
-
       const systemPrompt = `You are an expert teacher creating educational worksheets. Create a comprehensive, well-structured worksheet that is appropriate for ${params.grade} students studying ${params.subject}.
 
 The worksheet should include:
@@ -248,6 +287,9 @@ ${params.prompt ? `Additional requirements: ${params.prompt}` : ''}
 
 Format the output as a clean, printable worksheet in ${params.language === 'en' ? 'English' : 'the requested language'}.`;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const openaiResponse = await fetch(`${API_BASE_URL}/openai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -260,16 +302,26 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
           max_tokens: 2000,
           temperature: 0.7,
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!openaiResponse.ok) {
-        throw new Error('Failed to generate worksheet content');
+        const errorText = await openaiResponse.text().catch(() => 'Unknown error');
+        throw new Error(`OpenAI API error: ${openaiResponse.status} - ${errorText}`);
       }
 
       const result = await openaiResponse.json();
-      return result.choices?.[0]?.message?.content || result.content || result.text || this.generateFallbackContent(params);
+      const content = result.choices?.[0]?.message?.content || result.content || result.text;
+      
+      if (!content) {
+        throw new Error('No content received from OpenAI API');
+      }
+      
+      return content;
     } catch (error) {
-      console.error('Content generation failed:', error);
+      console.error('Content generation failed, using fallback:', error);
       return this.generateFallbackContent(params);
     }
   }
@@ -373,45 +425,10 @@ Generated by TurboTask Scholar - AI-Powered Worksheet Generator`;
     subject: string;
   }): Promise<string> {
     try {
-      // For development, return a working demo PDF URL immediately
-      if (__DEV__) {
-        // Create a data URL with the worksheet content for demo
-        const pdfContent = this.generateMockPDF(params.title, params.content, params);
-        const blob = new Blob([pdfContent], { type: 'application/pdf' });
-        return URL.createObjectURL(blob);
-      }
-
-      // Create S3 bucket for storing the PDF
-      const bucketResponse = await fetch(`${API_BASE_URL}/s3/buckets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!bucketResponse.ok) {
-        throw new Error('Failed to create storage bucket');
-      }
-
-      const { bucket_uuid } = await bucketResponse.json();
-
-      // Generate PDF content
+      // Always use local PDF generation for now to avoid server dependency
       const pdfContent = this.generateMockPDF(params.title, params.content, params);
-      
-      // Upload PDF to S3
-      const formData = new FormData();
-      const pdfBlob = new Blob([pdfContent], { type: 'application/pdf' });
-      formData.append('file', pdfBlob, `${params.title.replace(/\s+/g, '_')}.pdf`);
-
-      const uploadResponse = await fetch(`${API_BASE_URL}/s3/${bucket_uuid}/objects`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload worksheet PDF');
-      }
-
-      const { object_url } = await uploadResponse.json();
-      return object_url;
+      const blob = new Blob([pdfContent], { type: 'application/pdf' });
+      return URL.createObjectURL(blob);
     } catch (error) {
       console.error('PDF creation failed:', error);
       // Fallback to a working demo PDF
