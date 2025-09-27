@@ -9,7 +9,7 @@ export interface WorksheetRequest {
 
 export interface Worksheet {
   id: string;
-  userId: string;
+  userId?: string;
   title: string;
   content: string;
   language: string;
@@ -19,6 +19,7 @@ export interface Worksheet {
   thumbnailUrl?: string;
   createdAt: string;
   isFavorite: boolean;
+  downloadCount?: number;
 }
 
 export interface GenerationHistory {

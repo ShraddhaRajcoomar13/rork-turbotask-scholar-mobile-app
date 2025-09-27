@@ -12,6 +12,7 @@ export default function GenerateLayout() {
         headerBackTitle: 'Back',
       }}
     >
+      <Stack.Screen name="worksheet" />
       <Stack.Screen name="text" />
       <Stack.Screen name="image" />
     </Stack>
