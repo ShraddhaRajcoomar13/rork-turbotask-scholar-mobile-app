@@ -6,10 +6,8 @@ import { z } from 'zod';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useSubscription } from '@/hooks/subscription-store';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -24,22 +22,6 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
   const insets = useSafeAreaInsets();
   
   const { subscription, canGenerateWorksheet } = useSubscription();
-  const queryClient = useQueryClient();
-
-  const generateWorksheetMutation = useMutation({
-    mutationFn: async (worksheetData: any) => {
-      return apiService.generateWorksheet(worksheetData);
-    },
-    onSuccess: (worksheet) => {
-      queryClient.invalidateQueries({ queryKey: ['worksheets'] });
-      queryClient.invalidateQueries({ queryKey: ['subscription'] });
-
-      onSuccess?.(worksheet);
-    },
-    onError: (error) => {
-      Alert.alert('Generation Failed', error.message);
-    },
-  });
 
   const { messages, error, sendMessage } = useRorkAgent({
     tools: {
@@ -55,29 +37,39 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
           language: z.string().describe("Language for the worksheet").default("en"),
         }),
         async execute(input) {
-          if (!canGenerateWorksheet) {
-            return 'No credits remaining. Please upgrade your subscription.';
-          }
-
-          const worksheetData = {
-            type: 'text' as const,
-            content: `Create a ${input.subject} worksheet for ${input.grade} students on the topic: ${input.topic}. Include ${input.questionCount} questions at ${input.difficulty} difficulty level. ${input.includeAnswerKey ? 'Include an answer key.' : 'Do not include an answer key.'}`,
-            grade: input.grade,
-            subject: input.subject,
-            language: input.language,
-            prompt: `Generate ${input.questionCount} ${input.difficulty} level questions about ${input.topic}`,
-          };
-
           try {
-            const worksheet = await generateWorksheetMutation.mutateAsync(worksheetData);
-            // Store worksheet data for download
-            (window as any).lastGeneratedWorksheet = {
-              title: worksheet.title,
-              id: worksheet.id,
-              pdfUrl: worksheet.pdfUrl
+            if (!canGenerateWorksheet) {
+              return 'No credits remaining. Please upgrade your subscription.';
+            }
+
+            const worksheetData = {
+              type: 'text' as const,
+              content: `Create a ${input.subject} worksheet for ${input.grade} students on the topic: ${input.topic}. Include ${input.questionCount} questions at ${input.difficulty} difficulty level. ${input.includeAnswerKey ? 'Include an answer key.' : 'Do not include an answer key.'}`,
+              grade: input.grade,
+              subject: input.subject,
+              language: input.language,
+              prompt: `Generate ${input.questionCount} ${input.difficulty} level questions about ${input.topic}`,
             };
-            return `Worksheet "${worksheet.title}" generated successfully! You can download it now.`;
+
+            const worksheet = await apiService.generateWorksheet(worksheetData);
+            
+            // Store worksheet data for download (avoid structured clone issues)
+            const worksheetInfo = {
+              title: String(worksheet.title || 'Untitled Worksheet'),
+              id: String(worksheet.id || 'unknown'),
+              pdfUrl: String(worksheet.pdfUrl || '')
+            };
+            
+            if (typeof window !== 'undefined') {
+              (window as any).lastGeneratedWorksheet = worksheetInfo;
+            }
+            
+            // Trigger success callback
+            onSuccess?.(worksheet);
+            
+            return `Worksheet "${worksheetInfo.title}" generated successfully! You can download it now.`;
           } catch (error) {
+            console.error('Worksheet generation error:', error);
             return `Failed to generate worksheet: ${error instanceof Error ? error.message : 'Unknown error'}`;
           }
         },
@@ -128,13 +120,19 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
   const downloadWorksheet = async (worksheet: any) => {
     try {
       if (!worksheet?.pdfUrl) {
-        console.error('No PDF URL available');
+        Alert.alert('Error', 'No PDF available for download');
         return;
       }
 
       if (Platform.OS === 'web') {
         // For web, open the PDF in a new tab
-        window.open(worksheet.pdfUrl, '_blank');
+        const link = document.createElement('a');
+        link.href = worksheet.pdfUrl;
+        link.download = `${worksheet.title || 'worksheet'}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         return;
       }
 
@@ -147,10 +145,11 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(downloadResult.uri);
       } else {
-        console.log('Worksheet downloaded successfully!');
+        Alert.alert('Success', 'Worksheet downloaded successfully!');
       }
     } catch (error) {
       console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download worksheet. Please try again.');
     }
   };
 
@@ -272,13 +271,6 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
 
         {messages.map(renderMessage)}
 
-        {generateWorksheetMutation.isPending && (
-          <View style={styles.loadingContainer}>
-            <LoadingSpinner size="small" />
-            <Text style={styles.loadingText}>Generating your worksheet...</Text>
-          </View>
-        )}
-
         {error && (
           <Card style={styles.errorCard}>
             <Text style={styles.errorText}>Error: {error.message}</Text>
@@ -298,7 +290,7 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
         <Button
           title="Send"
           onPress={handleSendMessage}
-          disabled={!input.trim() || generateWorksheetMutation.isPending}
+          disabled={!input.trim()}
           style={styles.sendButton}
           size="small"
         />
