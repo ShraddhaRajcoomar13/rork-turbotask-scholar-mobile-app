@@ -199,7 +199,7 @@ export default function ProfileScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            TurboTask Scholar v1.0.0
+            Bizzee Bee Worksheets v1.0.0
           </Text>
           <Text style={styles.footerText}>
             AI-Powered Worksheet Generation

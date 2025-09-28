@@ -30,7 +30,7 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: "Dashboard",
-          headerTitle: "TurboTask Scholar",
+          headerTitle: "Bizzee Bee Worksheets",
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
