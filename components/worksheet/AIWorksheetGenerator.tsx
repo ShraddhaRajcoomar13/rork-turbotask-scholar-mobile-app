@@ -157,7 +157,7 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      const response = await fetch('http://vps.kyro.ninja:5000/openai', {
+      const response = await fetch('https://vps.kyro.ninja/openai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

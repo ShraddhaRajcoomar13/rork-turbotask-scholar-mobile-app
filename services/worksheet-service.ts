@@ -1,6 +1,6 @@
 import { WorksheetRequest, Worksheet } from '@/types/worksheet';
 
-const API_BASE_URL = 'http://vps.kyro.ninja:5000';
+const API_BASE_URL = 'https://vps.kyro.ninja';
 
 export class WorksheetService {
   private async getAuthHeaders(): Promise<Record<string, string>> {
@@ -82,25 +82,37 @@ export class WorksheetService {
     }
   }
 
-  private async extractTextFromImage(imageBase64: string): Promise<string> {
+  private async extractTextFromImage(imageUri: string): Promise<string> {
     try {
-      // Convert base64 to blob for FormData
-      const response = await fetch(imageBase64);
+      // Convert image to base64
+      const response = await fetch(imageUri);
       const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
       
-      const formData = new FormData();
-      formData.append('image', blob, 'lesson-plan.jpg');
-
+      // Remove data:image/jpeg;base64, prefix
+      const base64Data = base64.split(',')[1];
+      
       const textractResponse = await fetch(`${API_BASE_URL}/textract/image`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image_b64: base64Data
+        }),
       });
+      
+      const responseText = await textractResponse.text();
 
       if (!textractResponse.ok) {
-        throw new Error('Failed to extract text from image');
+        throw new Error(`Failed to extract text from image: ${responseText}`);
       }
 
-      const result = await textractResponse.json();
+      const result = JSON.parse(responseText);
       return result.text || result.extractedText || '';
     } catch (error) {
       console.error('Text extraction failed:', error);
