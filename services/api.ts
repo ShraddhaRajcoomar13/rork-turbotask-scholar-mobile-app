@@ -5,7 +5,7 @@ import { Subscription, SubscriptionTier, PaymentVerification } from '@/types/sub
 import { Worksheet, WorksheetRequest, GenerationHistory } from '@/types/worksheet';
 import { SAMPLE_USERS, SAMPLE_CREDENTIALS, SUBSCRIPTION_TIERS, SAMPLE_SUBSCRIPTIONS } from '@/constants/sample-data';
 
-const API_BASE_URL = 'http://vps.kyro.ninja:5000';
+const API_BASE_URL = 'https://vps.kyro.ninja';
 
 // Fallback to local development server if main server is unavailable
 const FALLBACK_API_URL = 'http://localhost:5000';

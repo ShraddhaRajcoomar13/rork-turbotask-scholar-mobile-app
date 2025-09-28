@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
-const API_BASE_URL = 'http://vps.kyro.ninja:5000';
+const API_BASE_URL = 'https://vps.kyro.ninja';
 const FALLBACK_API_URL = 'http://localhost:5000';
 
 export function APITest() {
