@@ -116,7 +116,7 @@ export default function SignupScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join TurboTask Scholar</Text>
+            <Text style={styles.subtitle}>Join Bizzee Bee Worksheets</Text>
           </View>
 
           <View style={styles.form}>
