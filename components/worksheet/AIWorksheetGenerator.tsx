@@ -505,14 +505,35 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
         }
       }
 
-      // For mobile platforms
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(worksheet.pdfUrl, {
-          mimeType: 'text/plain',
-          dialogTitle: worksheet.title || 'Worksheet'
-        });
-      } else {
-        Alert.alert('Info', 'Sharing not available on this device.');
+      // For mobile platforms - create actual file
+      try {
+        const filename = `${worksheet.title || 'worksheet'}.txt`;
+        const fileUri = FileSystem.documentDirectory + filename;
+        
+        // Get content from URL and write to file
+        let content = '';
+        if (worksheet.pdfUrl.startsWith('data:')) {
+          // Extract content from data URL
+          const base64Data = worksheet.pdfUrl.split(',')[1];
+          content = atob(base64Data);
+        } else {
+          // For other URLs, use the worksheet content directly
+          content = worksheet.content || `${worksheet.title}\n\nWorksheet content not available.`;
+        }
+        
+        await FileSystem.writeAsStringAsync(fileUri, content);
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/plain',
+            dialogTitle: worksheet.title || 'Worksheet'
+          });
+        } else {
+          Alert.alert('Success', `Worksheet saved to: ${filename}`);
+        }
+      } catch (mobileError) {
+        console.error('Mobile file creation error:', mobileError);
+        Alert.alert('Error', 'Unable to create file for sharing.');
       }
     } catch (error) {
       console.error('Download error:', error);
