@@ -26,6 +26,7 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [lastGeneratedWorksheet, setLastGeneratedWorksheet] = useState<any>(null);
 
   const generateWorksheetWithAI = async (prompt: string) => {
     try {
@@ -76,10 +77,8 @@ export function AIWorksheetGenerator({ onSuccess }: AIWorksheetGeneratorProps) {
         pdfUrl: worksheet.pdfUrl
       };
       
-      // Store in a simple way
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        (window as any).lastGeneratedWorksheet = worksheetInfo;
-      }
+      // Store worksheet info in state for consistent access
+      setLastGeneratedWorksheet(worksheetInfo);
       
       // Trigger success callback
       onSuccess?.(worksheet);
@@ -155,7 +154,7 @@ User request: ${params.prompt}
 Format the output as a clean, printable worksheet in ${params.language === 'en' ? 'English' : 'the requested language'}.`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
 
       const response = await fetch('https://vps.kyro.ninja/openai', {
         method: 'POST',
@@ -252,13 +251,11 @@ Format the output as a clean, printable worksheet in ${params.language === 'en' 
           downloadCount: 0,
         };
         
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          (window as any).lastGeneratedWorksheet = {
-            title: worksheet.title,
-            id: worksheet.id,
-            pdfUrl: worksheet.pdfUrl
-          };
-        }
+        setLastGeneratedWorksheet({
+          title: worksheet.title,
+          id: worksheet.id,
+          pdfUrl: worksheet.pdfUrl
+        });
         
         onSuccess?.(worksheet);
       } catch (fallbackError) {
@@ -479,17 +476,11 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
 
       if (Platform.OS === 'web') {
         try {
-          // For web, create and trigger download
           const link = document.createElement('a');
           link.href = worksheet.pdfUrl;
           link.download = `${worksheet.title || 'worksheet'}.txt`;
           
-          // Handle different URL types
-          if (worksheet.pdfUrl.startsWith('data:')) {
-            // Data URL - direct download
-            link.target = '_self';
-          } else if (worksheet.pdfUrl.startsWith('blob:')) {
-            // Blob URL - verify it's still valid
+          if (worksheet.pdfUrl.startsWith('blob:')) {
             try {
               const response = await fetch(worksheet.pdfUrl);
               if (!response.ok) {
@@ -499,10 +490,6 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
               Alert.alert('Error', 'Download link has expired. Please regenerate the worksheet.');
               return;
             }
-            link.target = '_blank';
-          } else {
-            // Regular URL
-            link.target = '_blank';
           }
           
           document.body.appendChild(link);
@@ -512,33 +499,41 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
           return;
         } catch (webError) {
           console.error('Web download error:', webError);
-          // Fallback: open in new tab
           window.open(worksheet.pdfUrl, '_blank');
-          Alert.alert('Info', 'Worksheet opened in new tab. Use your browser\'s download option to save it.');
+          Alert.alert('Info', 'Worksheet opened in new tab.');
           return;
         }
       }
 
-      // For mobile platforms
+      // For mobile platforms - create actual file
       try {
-        const downloadResult = await FileSystem.downloadAsync(
-          worksheet.pdfUrl,
-          FileSystem.documentDirectory + `${worksheet.title || 'worksheet'}.txt`
-        );
-
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(downloadResult.uri);
+        const filename = `${worksheet.title || 'worksheet'}.txt`;
+        const fileUri = FileSystem.documentDirectory + filename;
+        
+        // Get content from URL and write to file
+        let content = '';
+        if (worksheet.pdfUrl.startsWith('data:')) {
+          // Extract content from data URL
+          const base64Data = worksheet.pdfUrl.split(',')[1];
+          content = atob(base64Data);
         } else {
-          Alert.alert('Success', 'Worksheet downloaded successfully!');
+          // For other URLs, use the worksheet content directly
+          content = worksheet.content || `${worksheet.title}\n\nWorksheet content not available.`;
+        }
+        
+        await FileSystem.writeAsStringAsync(fileUri, content);
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/plain',
+            dialogTitle: worksheet.title || 'Worksheet'
+          });
+        } else {
+          Alert.alert('Success', `Worksheet saved to: ${filename}`);
         }
       } catch (mobileError) {
-        console.error('Mobile download error:', mobileError);
-        // Fallback for mobile: try to open in browser
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(worksheet.pdfUrl);
-        } else {
-          Alert.alert('Error', 'Unable to download. Please try again or contact support.');
-        }
+        console.error('Mobile file creation error:', mobileError);
+        Alert.alert('Error', 'Unable to create file for sharing.');
       }
     } catch (error) {
       console.error('Download error:', error);
@@ -550,7 +545,6 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
     const isSuccess = message.parts.some((part: any) => 
       part.type === 'text' && part.text.includes('generated successfully')
     );
-    const lastWorksheet = Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).lastGeneratedWorksheet : null;
     
     return (
       <View key={message.id} style={styles.messageContainer}>
@@ -573,7 +567,7 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
           })}
           
           {/* Show download button for successful generations */}
-          {message.role === 'assistant' && isSuccess && lastWorksheet && (
+          {message.role === 'assistant' && isSuccess && lastGeneratedWorksheet && (
             <View style={styles.worksheetResult}>
               <View style={styles.worksheetHeader}>
                 <FileText size={20} color={COLORS.success} />
@@ -581,7 +575,7 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
               </View>
               <Button
                 title="Download Worksheet"
-                onPress={() => downloadWorksheet(lastWorksheet)}
+                onPress={() => downloadWorksheet(lastGeneratedWorksheet)}
                 style={styles.downloadButton}
                 size="small"
               />
