@@ -39,9 +39,17 @@ export function QuickGenerateModal({ visible, onClose, onSuccess }: QuickGenerat
       onClose();
       resetForm();
     },
+    //onError: (error) => {
+    //  console.error('Generation failed:', error);
+    //},
     onError: (error) => {
-      console.error('Generation failed:', error);
-    },
+      try {
+        console.error('Generation failed:', error);
+      }
+      catch (e) {
+        console.log('Generation failed:', e);
+      }
+    }
   });
 
   const resetForm = () => {
