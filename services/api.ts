@@ -18,7 +18,7 @@ const testServerConnection = async (): Promise<{ isAvailable: boolean; url: stri
     try {
       console.log(`Testing server connection to: ${url}`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduced timeout
+      const timeoutId = setTimeout(() => controller.abort(), 1000 * 60); // 60 seconds timeout
       
       const response = await fetch(`${url}/health`, {
         signal: controller.signal,
@@ -336,7 +336,7 @@ ${params.prompt ? `Additional requirements: ${params.prompt}` : ''}
 Format the output as a clean, printable worksheet in ${params.language === 'en' ? 'English' : 'the requested language'}.`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 1000 * 60); // 60 seconds timeout
 
       const openaiResponse = await fetch(`${apiUrl}/openai`, {
         method: 'POST',
