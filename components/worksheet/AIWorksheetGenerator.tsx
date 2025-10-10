@@ -399,16 +399,43 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
     subject: string;
   }): Promise<string> => {
     try {
-      // Create a simple text file for demo (since PDF generation is complex)
-      const textContent = `${params.title}\n\n${params.content}`;
-      const blob = new Blob([textContent], { type: 'text/plain' });
-      return URL.createObjectURL(blob);
+      // Check if we're in a web environment
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.URL && window.Blob) {
+        const textContent = `${params.title}\n\n${params.content}`;
+        const blob = new Blob([textContent], { type: 'text/plain' });
+        
+        // Verify blob was created successfully
+        if (!blob || blob.size === 0) {
+          throw new Error('Failed to create blob');
+        }
+        
+        const url = URL.createObjectURL(blob);
+        
+        // Verify URL was created successfully
+        if (!url || url === 'blob:') {
+          throw new Error('Failed to create blob URL');
+        }
+        
+        return url;
+      } else {
+        // For non-web platforms, return a data URL
+        const textContent = `${params.title}\n\n${params.content}`;
+        const base64Content = btoa(unescape(encodeURIComponent(textContent)));
+        return `data:text/plain;base64,${base64Content}`;
+      }
     } catch (error) {
       console.error('PDF creation failed:', error);
-      // Fallback to a working text file
-      const textContent = `${params.title}\n\n${params.content}`;
-      const blob = new Blob([textContent], { type: 'text/plain' });
-      return URL.createObjectURL(blob);
+      
+      // Ultimate fallback - return a data URL
+      try {
+        const textContent = `${params.title}\n\n${params.content}`;
+        const base64Content = btoa(unescape(encodeURIComponent(textContent)));
+        return `data:text/plain;base64,${base64Content}`;
+      } catch (fallbackError) {
+        console.error('Fallback PDF creation also failed:', fallbackError);
+        // Return a minimal data URL as last resort
+        return `data:text/plain;charset=utf-8,${encodeURIComponent(params.title + '\n\n' + params.content)}`;
+      }
     }
   };
 
@@ -451,32 +478,71 @@ ${params.includeAnswerKey ? `${'='.repeat(50)}\nANSWER KEY\n${'='.repeat(50)}\n\
       }
 
       if (Platform.OS === 'web') {
-        // For web, open the file in a new tab
-        const link = document.createElement('a');
-        link.href = worksheet.pdfUrl;
-        link.download = `${worksheet.title || 'worksheet'}.txt`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        Alert.alert('Success', 'Worksheet downloaded successfully!');
-        return;
+        try {
+          // For web, create and trigger download
+          const link = document.createElement('a');
+          link.href = worksheet.pdfUrl;
+          link.download = `${worksheet.title || 'worksheet'}.txt`;
+          
+          // Handle different URL types
+          if (worksheet.pdfUrl.startsWith('data:')) {
+            // Data URL - direct download
+            link.target = '_self';
+          } else if (worksheet.pdfUrl.startsWith('blob:')) {
+            // Blob URL - verify it's still valid
+            try {
+              const response = await fetch(worksheet.pdfUrl);
+              if (!response.ok) {
+                throw new Error('Blob URL is no longer valid');
+              }
+            } catch (blobError) {
+              Alert.alert('Error', 'Download link has expired. Please regenerate the worksheet.');
+              return;
+            }
+            link.target = '_blank';
+          } else {
+            // Regular URL
+            link.target = '_blank';
+          }
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          Alert.alert('Success', 'Worksheet download started!');
+          return;
+        } catch (webError) {
+          console.error('Web download error:', webError);
+          // Fallback: open in new tab
+          window.open(worksheet.pdfUrl, '_blank');
+          Alert.alert('Info', 'Worksheet opened in new tab. Use your browser\'s download option to save it.');
+          return;
+        }
       }
 
-      // For mobile, download and share
-      const downloadResult = await FileSystem.downloadAsync(
-        worksheet.pdfUrl,
-        FileSystem.documentDirectory + `${worksheet.title || 'worksheet'}.txt`
-      );
+      // For mobile platforms
+      try {
+        const downloadResult = await FileSystem.downloadAsync(
+          worksheet.pdfUrl,
+          FileSystem.documentDirectory + `${worksheet.title || 'worksheet'}.txt`
+        );
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(downloadResult.uri);
-      } else {
-        Alert.alert('Success', 'Worksheet downloaded successfully!');
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadResult.uri);
+        } else {
+          Alert.alert('Success', 'Worksheet downloaded successfully!');
+        }
+      } catch (mobileError) {
+        console.error('Mobile download error:', mobileError);
+        // Fallback for mobile: try to open in browser
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(worksheet.pdfUrl);
+        } else {
+          Alert.alert('Error', 'Unable to download. Please try again or contact support.');
+        }
       }
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download worksheet. Please try again.');
+      Alert.alert('Error', `Failed to download worksheet: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
