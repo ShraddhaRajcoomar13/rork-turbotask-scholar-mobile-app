@@ -154,7 +154,7 @@ User request: ${params.prompt}
 Format the output as a clean, printable worksheet in ${params.language === 'en' ? 'English' : 'the requested language'}.`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
 
       const response = await fetch('https://vps.kyro.ninja/openai', {
         method: 'POST',
