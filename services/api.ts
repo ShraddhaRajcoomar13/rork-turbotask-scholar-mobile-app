@@ -18,7 +18,7 @@ const testServerConnection = async (): Promise<{ isAvailable: boolean; url: stri
     try {
       console.log(`Testing server connection to: ${url}`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000 * 60); // 60 seconds timeout
+      const timeoutId = setTimeout(() => controller.abort(), 1000 * 15); // 60 seconds timeout
       
       const response = await fetch(`${url}/health`, {
         signal: controller.signal,
@@ -64,7 +64,7 @@ class ApiService {
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout
+      const timeoutId = setTimeout(() => controller.abort(), 1000 * 30); // Increased timeout
       
       const response = await fetch(`${apiUrl}${endpoint}`, {
         ...options,
@@ -238,7 +238,7 @@ class ApiService {
     // Check server connectivity first
     const serverStatus = await testServerConnection();
     
-    if (!serverStatus.isAvailable || __DEV__) {
+    if (!serverStatus.isAvailable) { //if (!serverStatus.isAvailable || __DEV__) {
       console.log('Using fallback worksheet generation (server unavailable or dev mode)');
       return this.mockGenerateWorksheet(request);
     }
