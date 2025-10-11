@@ -36,7 +36,7 @@ export default function DashboardScreen() {
 
   const handleGenerateText = () => {
     if (canGenerateWorksheet) {
-      router.push('/generate/worksheet');
+      router.push('/generate/text');
     }
   };
 
@@ -48,7 +48,7 @@ export default function DashboardScreen() {
 
   const handleGenerateImage = () => {
     if (canGenerateWorksheet) {
-      router.push('/generate/worksheet');
+      router.push('/generate/image');
     }
   };
 

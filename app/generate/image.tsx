@@ -3,15 +3,16 @@ import { View, Text, StyleSheet, ScrollView, Alert, Image, TouchableOpacity } fr
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
-import { Camera, Upload, X, FileImage } from 'lucide-react-native';
+import { Camera, Upload, X, FileImage, CheckCircle } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { WorksheetDownloader } from '@/components/worksheet/WorksheetDownloader';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '@/services/api';
-import { SOUTH_AFRICAN_LANGUAGES } from '@/types/worksheet';
+import { worksheetService } from '@/services/worksheet-service';
+import { SOUTH_AFRICAN_LANGUAGES, Worksheet } from '@/types/worksheet';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export default function ImageGenerationScreen() {
@@ -23,23 +24,17 @@ export default function ImageGenerationScreen() {
     language: 'en',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generatedWorksheet, setGeneratedWorksheet] = useState<Worksheet | null>(null);
 
   const queryClient = useQueryClient();
 
   const generateMutation = useMutation({
-    mutationFn: (data: any) => apiService.generateWorksheet(data),
+    mutationFn: (data: any) => worksheetService.generateWorksheet(data),
     onSuccess: (worksheet) => {
       queryClient.invalidateQueries({ queryKey: ['worksheets'] });
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       
-      Alert.alert(
-        'Worksheet Generated!',
-        'Your worksheet has been created successfully.',
-        [
-          { text: 'View History', onPress: () => router.replace('/(tabs)/history') },
-          { text: 'Generate Another', onPress: () => setFormData({ image: null, prompt: '', grade: '', subject: '', language: 'en' }) },
-        ]
-      );
+      setGeneratedWorksheet(worksheet);
     },
     onError: (error) => {
       Alert.alert('Generation Failed', error.message);
@@ -147,6 +142,43 @@ export default function ImageGenerationScreen() {
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ title: 'Generating Worksheet' }} />
         <LoadingSpinner message="Analyzing your image and creating worksheet..." />
+      </SafeAreaView>
+    );
+  }
+
+  if (generatedWorksheet) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ title: 'Worksheet Generated' }} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Card style={styles.successCard}>
+            <View style={styles.successHeader}>
+              <CheckCircle size={32} color={COLORS.success} />
+              <Text style={styles.successTitle}>Worksheet Generated!</Text>
+              <Text style={styles.successSubtitle}>{generatedWorksheet.title}</Text>
+            </View>
+            
+            <WorksheetDownloader worksheet={generatedWorksheet} />
+            
+            <View style={styles.actionButtons}>
+              <Button
+                title="Generate Another"
+                onPress={() => {
+                  setGeneratedWorksheet(null);
+                  setFormData({ image: null, prompt: '', grade: '', subject: '', language: 'en' });
+                }}
+                variant="outline"
+                style={styles.actionButton}
+              />
+              <Button
+                title="View History"
+                onPress={() => router.replace('/(tabs)/history')}
+                variant="primary"
+                style={styles.actionButton}
+              />
+            </View>
+          </Card>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -392,5 +424,32 @@ const styles = StyleSheet.create({
   },
   generateButton: {
     marginTop: SPACING.lg,
+  },
+  successCard: {
+    alignItems: 'center',
+  },
+  successHeader: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  successTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.success,
+    marginTop: SPACING.sm,
+  },
+  successSubtitle: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+    width: '100%',
+  },
+  actionButton: {
+    flex: 1,
   },
 });

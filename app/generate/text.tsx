@@ -3,14 +3,15 @@ import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platfo
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
-import { FileText, Wand2 } from 'lucide-react-native';
+import { FileText, Wand2, CheckCircle } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { WorksheetDownloader } from '@/components/worksheet/WorksheetDownloader';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '@/services/api';
-import { SOUTH_AFRICAN_LANGUAGES } from '@/types/worksheet';
+import { worksheetService } from '@/services/worksheet-service';
+import { SOUTH_AFRICAN_LANGUAGES, Worksheet } from '@/types/worksheet';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export default function TextGenerationScreen() {
@@ -21,23 +22,17 @@ export default function TextGenerationScreen() {
     language: 'en',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generatedWorksheet, setGeneratedWorksheet] = useState<Worksheet | null>(null);
 
   const queryClient = useQueryClient();
 
   const generateMutation = useMutation({
-    mutationFn: (data: any) => apiService.generateWorksheet(data),
+    mutationFn: (data: any) => worksheetService.generateWorksheet(data),
     onSuccess: (worksheet) => {
       queryClient.invalidateQueries({ queryKey: ['worksheets'] });
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       
-      Alert.alert(
-        'Worksheet Generated!',
-        'Your worksheet has been created successfully.',
-        [
-          { text: 'View History', onPress: () => router.replace('/(tabs)/history') },
-          { text: 'Generate Another', onPress: () => setFormData({ prompt: '', grade: '', subject: '', language: 'en' }) },
-        ]
-      );
+      setGeneratedWorksheet(worksheet);
     },
     onError: (error) => {
       Alert.alert('Generation Failed', error.message);
@@ -91,6 +86,43 @@ export default function TextGenerationScreen() {
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ title: 'Generating Worksheet' }} />
         <LoadingSpinner message="Creating your AI-powered worksheet..." />
+      </SafeAreaView>
+    );
+  }
+
+  if (generatedWorksheet) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ title: 'Worksheet Generated' }} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Card style={styles.successCard}>
+            <View style={styles.successHeader}>
+              <CheckCircle size={32} color={COLORS.success} />
+              <Text style={styles.successTitle}>Worksheet Generated!</Text>
+              <Text style={styles.successSubtitle}>{generatedWorksheet.title}</Text>
+            </View>
+            
+            <WorksheetDownloader worksheet={generatedWorksheet} />
+            
+            <View style={styles.actionButtons}>
+              <Button
+                title="Generate Another"
+                onPress={() => {
+                  setGeneratedWorksheet(null);
+                  setFormData({ prompt: '', grade: '', subject: '', language: 'en' });
+                }}
+                variant="outline"
+                style={styles.actionButton}
+              />
+              <Button
+                title="View History"
+                onPress={() => router.replace('/(tabs)/history')}
+                variant="primary"
+                style={styles.actionButton}
+              />
+            </View>
+          </Card>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -279,5 +311,32 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.body,
     color: COLORS.text.secondary,
     marginBottom: SPACING.xs,
+  },
+  successCard: {
+    alignItems: 'center',
+  },
+  successHeader: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  successTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.success,
+    marginTop: SPACING.sm,
+  },
+  successSubtitle: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+    width: '100%',
+  },
+  actionButton: {
+    flex: 1,
   },
 });
