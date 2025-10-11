@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Wand2, FileText } from 'lucide-react-native';
+import { Wand2, FileText, CheckCircle } from 'lucide-react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { WorksheetDownloader } from '@/components/worksheet/WorksheetDownloader';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
-import { SOUTH_AFRICAN_LANGUAGES } from '@/types/worksheet';
+import { SOUTH_AFRICAN_LANGUAGES, Worksheet } from '@/types/worksheet';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 interface QuickGenerateModalProps {
@@ -25,6 +26,7 @@ export function QuickGenerateModal({ visible, onClose, onSuccess }: QuickGenerat
     language: 'en',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generatedWorksheet, setGeneratedWorksheet] = useState<Worksheet | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -35,13 +37,19 @@ export function QuickGenerateModal({ visible, onClose, onSuccess }: QuickGenerat
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       
       console.log('Worksheet generated successfully:', worksheet.title);
-      onSuccess?.();
-      onClose();
-      resetForm();
+      setGeneratedWorksheet(worksheet);
     },
+    //onError: (error) => {
+    //  console.error('Generation failed:', error);
+    //},
     onError: (error) => {
-      console.error('Generation failed:', error);
-    },
+      try {
+        console.error('Generation failed:', error);
+      }
+      catch (e) {
+        console.log('Generation failed:', e);
+      }
+    }
   });
 
   const resetForm = () => {
@@ -52,6 +60,7 @@ export function QuickGenerateModal({ visible, onClose, onSuccess }: QuickGenerat
       language: 'en',
     });
     setErrors({});
+    setGeneratedWorksheet(null);
   };
 
   const updateField = (field: string, value: string) => {
@@ -128,6 +137,25 @@ export function QuickGenerateModal({ visible, onClose, onSuccess }: QuickGenerat
           <View style={styles.loadingContainer}>
             <LoadingSpinner message="Creating your AI-powered worksheet..." />
           </View>
+        ) : generatedWorksheet ? (
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <Card style={styles.successCard}>
+              <View style={styles.successHeader}>
+                <CheckCircle size={32} color={COLORS.success} />
+                <Text style={styles.successTitle}>Worksheet Generated!</Text>
+                <Text style={styles.successSubtitle}>{generatedWorksheet.title}</Text>
+              </View>
+              
+              <WorksheetDownloader worksheet={generatedWorksheet} />
+              
+              <Button
+                title="Generate Another"
+                onPress={() => setGeneratedWorksheet(null)}
+                variant="outline"
+                style={styles.generateAnotherButton}
+              />
+            </Card>
+          </ScrollView>
         ) : (
           <KeyboardAvoidingView 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -321,5 +349,27 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.body,
     color: COLORS.text.secondary,
     marginBottom: SPACING.xs,
+  },
+  successCard: {
+    alignItems: 'center',
+  },
+  successHeader: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  successTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.success,
+    marginTop: SPACING.sm,
+  },
+  successSubtitle: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+  },
+  generateAnotherButton: {
+    marginTop: SPACING.lg,
+    width: '100%',
   },
 });

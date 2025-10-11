@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
-import { FileText } from 'lucide-react-native';
+import { View, Text, StyleSheet, Alert, Platform, Modal, ScrollView } from 'react-native';
+import { FileText, Eye, Download } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { Card } from '@/components/ui/Card';
 import { apiService } from '@/services/api';
 import { Worksheet } from '@/types/worksheet';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -25,6 +26,7 @@ export function WorksheetDownloader({
 }: WorksheetDownloaderProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [showTextPreview, setShowTextPreview] = useState(false);
 
   const sanitizeFilename = (filename: string): string => {
     return filename.replace(/[^a-zA-Z0-9\-_\s]/g, '_').replace(/\s+/g, '_');
@@ -123,16 +125,49 @@ export function WorksheetDownloader({
     }
   };
 
-  const handlePreview = async () => {
+  const handlePreview = () => {
+    setShowTextPreview(true);
+  };
+
+  const handleDownloadText = async () => {
     try {
-      await WebBrowser.openBrowserAsync(worksheet.pdfUrl, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-        controlsColor: COLORS.primary,
-        toolbarColor: COLORS.surface,
-      });
+      setIsDownloading(true);
+      onDownloadStart?.();
+
+      const filename = `${sanitizeFilename(worksheet.title)}_${worksheet.grade}_${worksheet.subject}.txt`;
+      
+      if (Platform.OS === 'web') {
+        const blob = new Blob([worksheet.content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        const fileUri = FileSystem.documentDirectory + filename;
+        await FileSystem.writeAsStringAsync(fileUri, worksheet.content);
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/plain',
+            dialogTitle: `Share ${worksheet.title}`,
+          });
+        } else {
+          Alert.alert('Download Complete', `Text file saved: ${filename}`);
+        }
+      }
+      
+      onDownloadComplete?.();
     } catch (error) {
-      console.error('Preview error:', error);
-      Alert.alert('Preview Failed', 'Unable to open worksheet preview');
+      console.error('Text download error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to download text';
+      onDownloadError?.(errorMessage);
+      Alert.alert('Download Failed', errorMessage);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -148,43 +183,60 @@ export function WorksheetDownloader({
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.buttonRow}>
-        <Button
-          title="Download"
-          onPress={handleDownload}
-          variant="primary"
-          size="small"
-          style={styles.actionButton}
-          testID={`download-${worksheet.id}`}
-        />
+    <>
+      <View style={styles.container}>
+        <View style={styles.buttonRow}>
+          <Button
+            title="Download Text"
+            onPress={handleDownloadText}
+            variant="primary"
+            size="small"
+            style={styles.actionButton}
+            testID={`download-text-${worksheet.id}`}
+          />
+          
+          <Button
+            title="Preview"
+            onPress={handlePreview}
+            variant="outline"
+            size="small"
+            style={styles.actionButton}
+            testID={`preview-${worksheet.id}`}
+          />
+        </View>
         
-        <Button
-          title="Preview"
-          onPress={handlePreview}
-          variant="outline"
-          size="small"
-          style={styles.actionButton}
-          testID={`preview-${worksheet.id}`}
-        />
-        
-        <Button
-          title="Share"
-          onPress={handleShare}
-          variant="outline"
-          size="small"
-          style={styles.actionButton}
-          testID={`share-${worksheet.id}`}
-        />
+        <View style={styles.infoRow}>
+          <FileText size={16} color={COLORS.text.secondary} />
+          <Text style={styles.infoText}>
+            Text • {worksheet.grade} • {worksheet.subject}
+          </Text>
+        </View>
       </View>
-      
-      <View style={styles.infoRow}>
-        <FileText size={16} color={COLORS.text.secondary} />
-        <Text style={styles.infoText}>
-          PDF • {worksheet.grade} • {worksheet.subject}
-        </Text>
-      </View>
-    </View>
+
+      <Modal
+        visible={showTextPreview}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowTextPreview(false)}
+      >
+        <View style={styles.previewContainer}>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewTitle}>{worksheet.title}</Text>
+            <Button
+              title="✕"
+              onPress={() => setShowTextPreview(false)}
+              variant="ghost"
+              size="small"
+            />
+          </View>
+          <ScrollView style={styles.previewContent}>
+            <Card style={styles.contentCard}>
+              <Text style={styles.contentText}>{worksheet.content}</Text>
+            </Card>
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -219,5 +271,34 @@ const styles = StyleSheet.create({
   downloadingText: {
     ...TYPOGRAPHY.body,
     color: COLORS.text.secondary,
+  },
+  previewContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  previewTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.text.primary,
+    flex: 1,
+  },
+  previewContent: {
+    flex: 1,
+    padding: SPACING.lg,
+  },
+  contentCard: {
+    padding: SPACING.lg,
+  },
+  contentText: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.primary,
+    lineHeight: 24,
   },
 });
